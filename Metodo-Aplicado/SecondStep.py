@@ -38,18 +38,24 @@ def CreateTaxaForPlayer(player_name):
 
     #player_parts = player.groupby(["year", "month", "week", "win"])
     player_champions = player["championName"].unique()
+    player_function = player["individualPosition"].unique()
 
     os.makedirs(directory+"TaxasDosJogadores", exist_ok=True)
     os.makedirs(directory+"TaxasDosJogadores\\"+player_name,exist_ok=True)
+    os.makedirs(directory+"TaxasDosJogadores\\"+player_name+"\\Champions",exist_ok=True)
+    os.makedirs(directory+"TaxasDosJogadores\\"+player_name+"\\Functions",exist_ok=True)
 
-    for champion in player_champions:
-        championData = player[player["championName"] == champion]
+    CreateTaxaTo("championName",player_champions,player,directory+"TaxasDosJogadores\\"+player_name+"\\Champions\\")
+    CreateTaxaTo("individualPosition",player_function,player,directory+"TaxasDosJogadores\\"+player_name+"\\Functions\\")
+    
+def CreateTaxaTo(columTag,targetList,player,directory):
+    for tag in targetList:
+        tagData = player[player[columTag] == tag]
+        CreateCSV(os.path.join(directory,tag+".csv"),["Year","Month","Week","pick_rate","win_rate"])
 
-        CreateCSV(os.path.join(directory+"TaxasDosJogadores\\"+player_name+"\\",champion+".csv"),["Year","Month","Week","pick_rate","win_rate"])
-
-        years = championData["year"].unique()
+        years = tagData["year"].unique()
         for year in years:
-            yearData = championData[championData["year"] == year]
+            yearData = tagData[tagData["year"] == year]
             yearPlayerData = player[player["year"] == year]
 
             months = yearData["month"].unique()
@@ -70,13 +76,12 @@ def CreateTaxaForPlayer(player_name):
                     week_pick_rate = week_part_total/week_part_alls
                     week_win_rate = week_win_total/week_part_total
 
-                    UpdateCSV(os.path.join(directory+"TaxasDosJogadores\\"+player_name+"\\",champion+".csv"),
+                    UpdateCSV(os.path.join(directory,tag+".csv"),
                               [year,month,week,week_pick_rate,week_win_rate],0,False
                               )
 
 #This Function create CSV file if this don't is created before.
-def CreateCSV(filePath,fieldnames): 
-    #print("Create CSV.")
+def CreateCSV(filePath,fieldnames):
     with open(filePath, mode="w",encoding="utf-16", newline="") as csvfile: 
         writer = csv.writer(csvfile)
         writer.writerow(fieldnames)
@@ -93,12 +98,11 @@ def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
 players_all = filtredData["summonerName"].unique()
 
 for player in players_all:
-
     updateCount = updateCount+1
     porcent = updateCount/len(players_all)
 
     if porcent >= old_porcent+call_porcent:
         old_porcent = porcent
-        print("Progress : "+str(porcent)+".")
+        print("Progress : "+str(porcent*100)+".")
 
     CreateTaxaForPlayer(player)
