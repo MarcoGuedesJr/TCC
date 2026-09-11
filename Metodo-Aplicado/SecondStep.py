@@ -38,7 +38,7 @@ def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
     print(f"\r"*erasor,
           end="", flush=True)
     print(f"\r"+message1+progress_str+message2, end="", flush=True)
-    if end and progress >= 100: print("")
+    if end and value >= maxValue: print("")
     
 #This Function create CSV file if this don't is created before.
 def CreateCSV(filePath,fieldnames):
