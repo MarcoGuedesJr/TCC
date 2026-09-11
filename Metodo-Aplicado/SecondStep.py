@@ -18,13 +18,11 @@ from pathlib import Path
 #from sklearn.tree import DecisionTreeClassifier
 
 directory = r"C:\Users\marco\Documents\TCC\Metodo-Aplicado\\"
-dataBaseFiltred = "LOL_2023_Filtred.csv"
-filtredData = pd.read_csv(directory+dataBaseFiltred)
-filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimestampToDate"])
+dataBasePath = directory+"\\DataBase\\"
 
-porcent = 0
-old_porcent = 0
-call_porcent = 0.01
+dataBaseFiltred = "LOL_2023_Filtred.csv"
+filtredData = pd.read_csv(dataBasePath+dataBaseFiltred)
+filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimestampToDate"])
 
 updateCount = 0
 
@@ -45,10 +43,17 @@ def CreateTaxaForPlayer(player_name):
     os.makedirs(directory+"TaxasDosJogadores\\"+player_name+"\\Champions",exist_ok=True)
     os.makedirs(directory+"TaxasDosJogadores\\"+player_name+"\\Functions",exist_ok=True)
 
-    CreateTaxaTo("championName",player_champions,player,directory+"TaxasDosJogadores\\"+player_name+"\\Champions\\")
-    CreateTaxaTo("individualPosition",player_function,player,directory+"TaxasDosJogadores\\"+player_name+"\\Functions\\")
+    playerDirectory = directory+"TaxasDosJogadores\\"+player_name+"\\"
+    championsDirectory = directory+"TaxasDosJogadores\\"+player_name+"\\Champions\\"
+    functionsDirectory = directory+"TaxasDosJogadores\\"+player_name+"\\Functions\\"
+
+    CreateCSV(os.path.join(playerDirectory,"Player_Taxas.csv"),["Champion/Function","Year","Month","Week","pick_rate","win_rate"])
+
+    CreateTaxaTo("championName",player_champions,player,championsDirectory,playerDirectory)
+    CreateTaxaTo("individualPosition",player_function,player,functionsDirectory,playerDirectory)
     
-def CreateTaxaTo(columTag,targetList,player,directory):
+def CreateTaxaTo(columTag,targetList,player,directory,player_directory):
+    
     for tag in targetList:
         tagData = player[player[columTag] == tag]
         CreateCSV(os.path.join(directory,tag+".csv"),["Year","Month","Week","pick_rate","win_rate"])
@@ -79,6 +84,9 @@ def CreateTaxaTo(columTag,targetList,player,directory):
                     UpdateCSV(os.path.join(directory,tag+".csv"),
                               [year,month,week,week_pick_rate,week_win_rate],0,False
                               )
+                    UpdateCSV(os.path.join(player_directory,"Player_Taxas.csv"),
+                              [tag,year,month,week,week_pick_rate,week_win_rate],0,False
+                              )
 
 #This Function create CSV file if this don't is created before.
 def CreateCSV(filePath,fieldnames):
@@ -95,14 +103,20 @@ def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
         writer.writerow(write)
     return updateCount
 
+def ProgressBar(message1,percentage,message2 = "%.",end = False):
+    print(f"\r                                                                                                              ",
+          end="", flush=True)
+    print(f"\r"+message1+str(percentage)+message2, end="", flush=True)
+    if(end): print(".")
+
 players_all = filtredData["summonerName"].unique()
 
+i = 0
 for player in players_all:
-    updateCount = updateCount+1
-    porcent = updateCount/len(players_all)
-
-    if porcent >= old_porcent+call_porcent:
-        old_porcent = porcent
-        print("Progress : "+str(porcent*100)+".")
-
+    
     CreateTaxaForPlayer(player)
+
+    i+= 1
+    progress = (i / len(players_all))*100
+    ProgressBar("Analysis in ",progress)
+    if progress >= 100: print("")
