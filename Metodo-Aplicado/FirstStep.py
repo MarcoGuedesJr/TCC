@@ -11,17 +11,14 @@ limit_percent = 1
 usedColumns = ["region","regionCode","gameEndTimestampToDate","championName","gameEndedInEarlySurrender","gameEndedInSurrender",
                "individualPosition","lane","role","summonerName","win"]
 cutPlayersParameter = 5
+
 directory = r"C:\Users\marco\Documents\TCC\Metodo-Aplicado\\"
+dataBasePath = directory+"\\DataBase\\"
+
 dataBaseName = "Dataset_LeagueOfLegends_2023.csv"
 filtredName = "LOL_2023_Filtred.csv"
 
-base_csv = pd.read_csv(directory+dataBaseName)
-
-def ProgressBar(message1,percentage,message2 = "%.",end = False):
-    print(f"\r                                                                                                              ",
-          end="", flush=True)
-    print(f"\r"+message1+str(percentage)+message2, end="", flush=True)
-    if(end): print("")
+base_csv = pd.read_csv(dataBasePath+dataBaseName)
 
 #This Function create CSV file if this don't is created before.
 def CreateCSV(filePath,fieldnames): 
@@ -30,119 +27,34 @@ def CreateCSV(filePath,fieldnames):
         writer = csv.writer(csvfile)
         writer.writerow(fieldnames)
 
-#This Function edit a created CSV.
-def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
-    updateCount = updateCount+1
-    if(printCount): print("Update CSV Count = "+str(updateCount)+".")
-    with open(csvPath, mode="a",encoding="utf-16", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(write)
-    return updateCount
-
-#This Function copy all elements in target columns from CSV file to other CSV file.
-def CopyCSVColumnsToOtherCSV(baseCSV,otherCSV):
-    columns_filtred = baseCSV[usedColumns]
-    columns_filtred.to_csv(otherCSV,index=False)
+#This Function save all elements of local CSV in the file CSV.
+def SaveCSV(baseCSV,otherCSVPath):
+    baseCSV.to_csv(otherCSVPath,index=False)
     return 
 
-#This Function is used to remove all columns don't used.
-def RemoveColumns() -> bool:
-    updateCount = 0
+#This Function is used to filter all things about the CSV.
+def FilterData(playersIdentifierColumn:str,earlySurrenderIdentifier:str) -> bool:
+    CreateCSV(os.path.join(dataBasePath,filtredName),usedColumns)
 
-    print("###################################################################")
-    print("Start Remove Columns Step.")
-    print("###################################################################")
-    CreateCSV(os.path.join(directory,filtredName),usedColumns)
+    filtred_csv = pd.read_csv(dataBasePath+filtredName,encoding = "utf-16")
 
-    print("Copy Columns To Other CSV file.")
-    CopyCSVColumnsToOtherCSV(base_csv,filtredName)
+    contagem = base_csv[playersIdentifierColumn].value_counts()
+    filtred_csv = base_csv[base_csv[playersIdentifierColumn].isin(contagem[contagem.values > cutPlayersParameter].index)]
+    filtred_csv = filtred_csv[usedColumns]
+    filtred_csv = filtred_csv[filtred_csv[earlySurrenderIdentifier] != True]
 
-    print("Step Finish.")
-    print("###################################################################")
-    return True
+    SaveCSV(filtred_csv,dataBasePath+filtredName)
 
-def RemovePlayers(playersIdentifierColumn:str) -> bool:
-    print("###################################################################")
-    print("Start Remove Players Step.")
-    print("###################################################################")
-
-    print("Get Players in Columns.")
-    players = base_csv[playersIdentifierColumn]
-
-    print("Making Players List.")
-    players_list = {}
-    search_count = 0
-    percentage = 0
-    percentage_caller_number = 0.1
-    percentage_old_called = -1 
-    for player in players:
-        if(textMode and limit_percent <= percentage): break
-        search_count += 1
-        percentage = 100*search_count/players.count()
-        if(percentage >= percentage_old_called + percentage_caller_number):
-            ProgressBar("Player List ",percentage,"%.")
-            percentage_old_called = percentage
-        search = False
-        for target in players_list:
-            if(player == target):
-                players_list[player] = players_list[player]+1
-                search = True
-                break
-        if(search == False):
-            players_list[player] = 1
-    ProgressBar("Player List ",100,"%.",True)
-    
-    print("Making Remove List.")
-    players_remove_list = {}
-    search_count = 0
-    percentage = 0
-    percentage_old_called = -1
-    for player,count in players_list.items():
-        if(textMode and limit_percent <= percentage): break
-        search_count += 1
-        percentage = 100*search_count/len(players_list)
-        if(percentage >= percentage_old_called + percentage_caller_number):
-            ProgressBar("Player Remove List ",percentage,"%.")
-        players_remove_list[player] = count <= cutPlayersParameter
-    ProgressBar("Player Remove List ",100,"%.",True)
-
-    print("Remove Players From List.")
-    modify_list = pd.read_csv(directory+filtredName)
-    modify_list = modify_list[~modify_list["summonerName"].isin(player for player,remov in players_remove_list.items()
-                                                                if remov == True)]
-    CopyCSVColumnsToOtherCSV(modify_list,filtredName)
-
-    print("Making CSV Player_List.")
-    updateCount = 0
-    search_count = 0
-    percentage = 0
-    percentage_old_called = -1
     CreateCSV(os.path.join(directory,"Player_List.csv"),["Player_Id","Game_Count","Remove"])
-    for player,count in players_list.items():
-        if(textMode and limit_percent <= percentage): break
-        search_count += 1
-        percentage = 100*search_count/len(players_list)
-        remove = players_remove_list[player]
-        updateCount = UpdateCSV(os.path.join(directory,"Player_List.csv"),[player,count,remove],updateCount,False)
-        if(percentage >= percentage_old_called + percentage_caller_number):
-                    ProgressBar("CSV Player_List ",percentage,"%. Update CSV Count : "+str(updateCount)+".")
-    ProgressBar("CSV Player_List ",100,"%. "+ "Update CSV Count : "+str(updateCount),True)
-    print("###################################################################")
+
+    player_list = pd.DataFrame({
+        "Player_Id": contagem.index,
+        "Game_Count": contagem.values,
+        "Remove": contagem > cutPlayersParameter
+    })
+    SaveCSV(player_list,directory+"Player_List.csv")
     return True
 
-def RemoveParts(earlySurrenderIdentifier: str) -> bool:
-    print("###################################################################")
-    print("Start Remove Parts Step.")
-    print("###################################################################")
-
-    print("Remove Parts From List.")
-    modify_list = pd.read_csv(directory+filtredName)
-    modify_list = modify_list[modify_list[earlySurrenderIdentifier] != True]
-    CopyCSVColumnsToOtherCSV(modify_list,filtredName)
-
-    print("###################################################################")
-    return True
-
-RemoveColumns()
-RemovePlayers("summonerName")
-RemoveParts("gameEndedInEarlySurrender")
+print("Start Process.")
+FilterData("summonerName","gameEndedInEarlySurrender")
+print("End Process.")

@@ -26,6 +26,36 @@ filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimes
 
 updateCount = 0
 
+#Use this to show your progress in terminal.
+def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
+    progress = (value / maxValue)
+    progress = progress*100
+    progress = round(progress)
+    progress_str = str(progress)
+
+    erasor = len(message1) + len(message1) + len(progress_str)
+
+    print(f"\r"*erasor,
+          end="", flush=True)
+    print(f"\r"+message1+progress_str+message2, end="", flush=True)
+    if end and progress >= 100: print("")
+    
+#This Function create CSV file if this don't is created before.
+def CreateCSV(filePath,fieldnames):
+    with open(filePath, mode="w",encoding="utf-16", newline="") as csvfile: 
+        writer = csv.writer(csvfile)
+        writer.writerow(fieldnames)
+
+#This Function edit a created CSV.
+def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
+    updateCount = updateCount+1
+    if(printCount): print("Update CSV Count = "+str(updateCount)+".")
+    with open(csvPath, mode="a",encoding="utf-16", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(write)
+    return updateCount
+
+#This Function is used for makin path and create all CSV about champions and functions of player.
 def CreateTaxaForPlayer(player_name):
 
     player = filtredData[filtredData["summonerName"] == player_name]
@@ -34,7 +64,6 @@ def CreateTaxaForPlayer(player_name):
     player["month"] = filtredData["gameEndTimestampToDate"].dt.month
     player["week"] = ((filtredData["gameEndTimestampToDate"].dt.day -1) // 7) + 1
 
-    #player_parts = player.groupby(["year", "month", "week", "win"])
     player_champions = player["championName"].unique()
     player_function = player["individualPosition"].unique()
 
@@ -51,7 +80,8 @@ def CreateTaxaForPlayer(player_name):
 
     CreateTaxaTo("championName",player_champions,player,championsDirectory,playerDirectory)
     CreateTaxaTo("individualPosition",player_function,player,functionsDirectory,playerDirectory)
-    
+
+#This is a generic function created to make CSV for the Champions and Functions just change the values.
 def CreateTaxaTo(columTag,targetList,player,directory,player_directory):
     
     for tag in targetList:
@@ -88,27 +118,6 @@ def CreateTaxaTo(columTag,targetList,player,directory,player_directory):
                               [tag,year,month,week,week_pick_rate,week_win_rate],0,False
                               )
 
-#This Function create CSV file if this don't is created before.
-def CreateCSV(filePath,fieldnames):
-    with open(filePath, mode="w",encoding="utf-16", newline="") as csvfile: 
-        writer = csv.writer(csvfile)
-        writer.writerow(fieldnames)
-
-#This Function edit a created CSV.
-def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
-    updateCount = updateCount+1
-    if(printCount): print("Update CSV Count = "+str(updateCount)+".")
-    with open(csvPath, mode="a",encoding="utf-16", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(write)
-    return updateCount
-
-def ProgressBar(message1,percentage,message2 = "%.",end = False):
-    print(f"\r                                                                                                              ",
-          end="", flush=True)
-    print(f"\r"+message1+str(percentage)+message2, end="", flush=True)
-    if(end): print(".")
-
 players_all = filtredData["summonerName"].unique()
 
 i = 0
@@ -116,7 +125,4 @@ for player in players_all:
     
     CreateTaxaForPlayer(player)
 
-    i+= 1
-    progress = (i / len(players_all))*100
-    ProgressBar("Analysis in ",progress)
-    if progress >= 100: print("")
+    i+= 1; ProgressBar("Analysis in ",i,len(players_all),end=True)
