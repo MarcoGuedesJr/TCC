@@ -26,6 +26,12 @@ filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimes
 
 updateCount = 0
 
+column_tag = {
+    "player" : "summonerName",
+    "champion" : "championName",
+    "function" : "individualPosition"
+}
+
 #Use this to show your progress in terminal.
 def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
     progress = (value / maxValue)
@@ -76,13 +82,13 @@ def CreateTaxaForPlayer(player_name):
     championsDirectory = directory+"TaxasDosJogadores\\"+player_name+"\\Champions\\"
     functionsDirectory = directory+"TaxasDosJogadores\\"+player_name+"\\Functions\\"
 
-    CreateCSV(os.path.join(playerDirectory,"Player_Taxas.csv"),["Champion/Function","Year","Month","Week","pick_rate","win_rate"])
+    CreateCSV(os.path.join(playerDirectory,"Player_Taxas.csv"),["Player","Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"])
 
-    CreateTaxaTo("championName",player_champions,player,championsDirectory,playerDirectory)
-    CreateTaxaTo("individualPosition",player_function,player,functionsDirectory,playerDirectory)
+    CreateTaxaTo("championName",player_champions,player,player_name,championsDirectory,playerDirectory)
+    CreateTaxaTo("individualPosition",player_function,player,player_name,functionsDirectory,playerDirectory)
 
 #This is a generic function created to make CSV for the Champions and Functions just change the values.
-def CreateTaxaTo(columTag,targetList,player,directory,player_directory):
+def CreateTaxaTo(columTag,targetList,player,player_name,directory,player_directory):
     
     for tag in targetList:
         tagData = player[player[columTag] == tag]
@@ -115,14 +121,17 @@ def CreateTaxaTo(columTag,targetList,player,directory,player_directory):
                               [year,month,week,week_pick_rate,week_win_rate],0,False
                               )
                     UpdateCSV(os.path.join(player_directory,"Player_Taxas.csv"),
-                              [tag,year,month,week,week_pick_rate,week_win_rate],0,False
+                              [player_name,tag,year,month,week,week_part_total,week_pick_rate,week_win_total,week_win_rate],0,False
                               )
 
 players_all = filtredData["summonerName"].unique()
 
+print("==============================================================")
+print("Start Second Step.")
 i = 0
 for player in players_all:
     
     CreateTaxaForPlayer(player)
 
     i+= 1; ProgressBar("Analysis in ",i,len(players_all),end=True)
+print("==============================================================")

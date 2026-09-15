@@ -55,6 +55,7 @@ def FilterData(playersIdentifierColumn:str,earlySurrenderIdentifier:str) -> bool
     SaveCSV(player_list,directory+"Player_List.csv")
     return True
 
+print("==============================================================")
 print("Start Process.")
 FilterData("summonerName","gameEndedInEarlySurrender")
-print("End Process.")
+print("==============================================================")
