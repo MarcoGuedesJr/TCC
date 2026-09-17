@@ -114,8 +114,8 @@ def CreateTaxaTo(columTag,targetList,player,player_name,directory,player_directo
 
                     week_win_total = weekData["win"].sum()
 
-                    week_pick_rate = week_part_total/week_part_alls
-                    week_win_rate = week_win_total/week_part_total
+                    week_pick_rate = round(week_part_total/week_part_alls,2)
+                    week_win_rate = round(week_win_total/week_part_total,2)
 
                     UpdateCSV(os.path.join(directory,tag+".csv"),
                               [year,month,week,week_pick_rate,week_win_rate],0,False
