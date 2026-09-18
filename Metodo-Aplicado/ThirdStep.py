@@ -4,7 +4,7 @@ import datetime
 import pandas as pd
 import calendar
 from pathlib import Path
-#from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans
 import numpy as np
 
 #contagem = df['categoria'].value_counts()
@@ -33,6 +33,8 @@ column_tag = {
     "champion" : "championName",
     "function" : "individualPosition"
 }
+
+clustersColumns = ["parts","rate_min","rate_max","rate_delta"]
 
 #Use this to show your progress in terminal.
 def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
@@ -125,12 +127,114 @@ def CreateVectorsForPlayers(player_name):
 
     CreateVectors(player,player_name,playerDirectory)
 
-players_all = filtredData["summonerName"].unique()
+def GetVectorForAllPlayers(players):
+
+    first = True
+    all_vector = { "escolhas" : None, "win" : None}
+    i = 0
+
+    CreateCSV(os.path.join(dataBasePath,"Players_Vector_Escolha.csv"),["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"])
+    CreateCSV(os.path.join(dataBasePath,"Players_Vector_Win.csv"),["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"])
+    for player in players:
+        i += 1
+        playerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
+        targetVector_escolhas = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
+        targetVector_win = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
+
+        if first: all_vector["escolhas"] = targetVector_escolhas; all_vector["win"] = targetVector_win; first = False; continue
+
+        all_vector["escolhas"] = pd.concat([all_vector["escolhas"],targetVector_escolhas],ignore_index=True)
+        all_vector["win"] = pd.concat([all_vector["win"],targetVector_win],ignore_index=True)
+
+        ProgressBar("Making unifiqued vectors csv ",i,len(players_all),end=True)
+
+    all_vector["escolhas"].to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
+    all_vector["win"].to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
+
+    return all_vector
+
+def ClusterKmeans(vectors):
+    k = 3; kmeans = KMeans(n_clusters = k, random_state=42)
+    kmeans.fit(vectors[clustersColumns])
+    vectors["cluster"] = kmeans.labels_
+
+    centroids = kmeans.cluster_centers_
+
+    rate_max_index = clustersColumns.index("rate_max")
+
+    #":" é usado para referenciar todas as linhas
+    #"rate_max_index" é o numero da coluna que os dados serão buscados.
+    #Essencialmente, todas as linhas da coluna rate_max_index.
+    rate_max_values = centroids[:, rate_max_index]
+    print("rate_max_values : ")
+    print(rate_max_values)
+    print("centroids : ")
+    print(centroids)
+
+    ordered_clusters = np.argsort(rate_max_values)
+
+    cluster_names = {
+        ordered_clusters[0]: "Low",
+        ordered_clusters[1]: "Average",
+        ordered_clusters[2]: "High"
+    }
+    print("Cluster for Classifier : ")
+    print(cluster_names)
+
+    vectors["commitment"] = vectors["cluster"].map(cluster_names)
+
+    return vectors
+
+def ClusterStep(players_vectors,players_all,champions_all,functions_all):
+    vector_escolhas = players_vectors["escolha"]
+    vector_wins = players_vectors["win"]
+
+    all_tags = np.concatenate((champions_all,functions_all))
+
+    first = True
+    models_escolhas:pd.DataFrame = None; models_wins:pd.DataFrame = None
+    i = 0
+    for tag in all_tags:
+        i+= 1
+        tagVector_escolhas = vector_escolhas[vector_escolhas["Champion/Function"] == tag]
+        tagVector_wins = vector_wins[vector_wins["Champion/Function"] == tag]
+        years = tagVector_escolhas["Year"].unique()
+        for year in years:
+            yearVector_escolhas = tagVector_escolhas[tagVector_escolhas["Year"] == year]
+            yearVector_wins = tagVector_wins[tagVector_wins["Year"] == year]
+            months = yearVector_escolhas["Month"].unique()
+            for month in months:
+                monthVector_escolhas = yearVector_escolhas[yearVector_escolhas["Month"] == month]
+                monthVector_wins = yearVector_wins[yearVector_wins["Month"] == month]
+                if first: models_escolhas = ClusterKmeans(monthVector_escolhas); models_wins = ClusterKmeans(monthVector_wins); first = False
+                models_escolhas = pd.concat([models_escolhas,ClusterKmeans(monthVector_escolhas)],ignore_index=True)
+                models_wins = pd.concat([models_wins,ClusterKmeans(monthVector_wins)],ignore_index=True)
+        ProgressBar("Making clusters is in ",i,len(all_tags),end=True)
+
+    results = {
+        "escolha" : models_escolhas,
+        "win" : models_wins
+    }
+    models_escolhas.to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
+    models_wins.to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
+    return results
+
+players_all = filtredData[column_tag["player"]].unique()
+champions_all = filtredData[column_tag["champion"]].unique()
+functions_all = filtredData[column_tag["function"]].unique()
 
 print("==============================================================")
 print("Start Second Step.")
 i = 0
 for player in players_all:
-    CreateVectorsForPlayers(player)
+    #CreateVectorsForPlayers(player)
     i+= 1; ProgressBar("Analysis in ",i,len(players_all),end=True)
+
+#players_vectors = GetVectorForAllPlayers(players_all)
+players_vectors = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
+
+player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all)
+
+
+
 print("==============================================================")

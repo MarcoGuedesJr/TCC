@@ -197,11 +197,11 @@ def MakeBoxPlot(base,baseName):
 
     #BoxPlot(base,column_tag["player"],"Box Plot "+baseName+": Maximo De Partidas P/ Player","Partidas Jogadas",baseName+"_Players")
 
-    BoxPlot(dados_champions_escolha,"Box Plot "+baseName+": Maximo De Escolhas P/ Campeão","Vezes Escolhidas P/ Player",baseName+"_Champions",baseName,labelNumbers=5)
-    BoxPlot(dados_champions_win,"Box Plot "+baseName+": Maximo De Win P/ Campeão","Maximo De Vitorias P/ Player",baseName+"_ChampionsWin",baseName,labelNumbers=5)
+    BoxPlot(dados_champions_escolha,"Box Plot "+baseName+": Escolhas P/ Campeão","Vezes Escolhidas P/ Player",baseName+"_Champions",baseName,labelNumbers=5)
+    BoxPlot(dados_champions_win,"Box Plot "+baseName+": Vitorias P/ Campeão","Vitorias P/ Player",baseName+"_ChampionsWin",baseName,labelNumbers=5)
     
-    BoxPlot(dados_functions_escolha,"Box Plot "+baseName+": Maximo De Escolhas P/ Função","Vezes Escolhidas P/ Player",baseName+"_Functions",baseName)
-    BoxPlot(dados_functions_win,"Box Plot "+baseName+": Maximo De Win P/ Função","Maximo De Vitorias P/ Player",baseName+"_FunctionsWin",baseName)
+    BoxPlot(dados_functions_escolha,"Box Plot "+baseName+": Escolhas P/ Função","Vezes Escolhidas P/ Player",baseName+"_Functions",baseName)
+    BoxPlot(dados_functions_win,"Box Plot "+baseName+": Vitorias P/ Função","Vitorias P/ Player",baseName+"_FunctionsWin",baseName)
 
 def MakeAnalysisDirs():
     os.makedirs(directory+"Analysis", exist_ok=True)

@@ -57,14 +57,14 @@ def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
     return updateCount
 
 def CreateAnalisedCSV(fileName,dir=directory+"Analysis"):
-    CreateCSV(os.path.join(dir,fileName),["ValueTag",
-                                                "Mínimo - Taxa Vitoria","Player Mínimo - Taxa Vitoria",
-                                                "Máximo - Taxa Vitoria", "Player Máximo - Taxa Vitoria",
-                                                "Média - Taxa Vitoria", "Player Média - Taxa Vitoria",
+    CreateCSV(os.path.join(dir,fileName),["ValueTag", "Player"
+                                                "Mínimo - Taxa Vitoria",
+                                                "Máximo - Taxa Vitoria",
+                                                "Média - Taxa Vitoria",
                                                 "Desvio Padrão - Taxa Vitoria",
-                                                "Mínimo - Taxa Escolha", "Player Mínimo - Taxa Escolha",
-                                                "Máximo - Taxa Escolha", "Player Máximo - Taxa Escolha",
-                                                "Média - Taxa Escolha", "Player Média - Taxa Escolha",
+                                                "Mínimo - Taxa Escolha",
+                                                "Máximo - Taxa Escolha",
+                                                "Média - Taxa Escolha",
                                                 "Desvio Padrão - Taxa Escolha",
                                                 "Distribuição"])
 
@@ -81,44 +81,56 @@ def Analise(base,columnTag,fileName,dir = directory+"Analysis"):
         tagCount = tagBase["Player"].value_counts()
 
         value_tag = tag
+        player_tag = winRate.idxmin()
 
-        min_winRate = winRate.min();  player_min_winRate = tagBase.loc[winRate.idxmin(), "Player"]
-        max_winRate = winRate.max();  player_max_winRate = tagBase.loc[winRate.idxmax(), "Player"]
-        med_winRate = round(winRate.mean()); player_med_winRate = tagBase.loc[(winRate - winRate.mean()).abs().idxmin(), "Player"]
+        min_winRate = winRate.min()
+        max_winRate = winRate.max()
+        med_winRate = round(winRate.mean(),2)
         des_winRate = winRate.std()
 
         if pd.isna(des_winRate):
             des_winRate = "NaN"
         else:
-            des_winRate = round(des_winRate)
+            des_winRate = round(des_winRate,2)
 
-        min_pickRate = pickRate.min();  player_min_pickRate = tagBase.loc[pickRate.idxmin(), "Player"]
-        max_pickRate = pickRate.max();  player_max_pickRate = tagBase.loc[pickRate.idxmax(), "Player"]
-        med_pickRate = round(pickRate.mean()); player_med_pickRate = tagBase.loc[(pickRate - pickRate.mean()).abs().idxmin(), "Player"]
+        min_pickRate = pickRate.min()
+        max_pickRate = pickRate.max()
+        med_pickRate = round(pickRate.mean(),2)
         des_pickRate = pickRate.std()
         if pd.isna(des_pickRate):
             des_pickRate = "NaN"
         else:
-            des_pickRate = round(des_winRate)
+            des_pickRate = round(des_winRate,2)
 
         dist = tagCount.sum()
 
-        UpdateCSV(os.path.join(dir,fileName),[value_tag,
-                                                    min_winRate,player_min_winRate,
-                                                    max_winRate,player_max_winRate,
-                                                    med_winRate,player_med_winRate,
+        UpdateCSV(os.path.join(dir,fileName),[value_tag, player_tag,
+                                                    min_winRate, max_winRate, med_winRate,
                                                     des_winRate,
-                                                    min_pickRate,player_min_pickRate,
-                                                    max_pickRate,player_max_pickRate,
-                                                    med_pickRate,player_med_pickRate,
+                                                    min_pickRate, max_pickRate, med_pickRate,
                                                     des_pickRate,
                                                     dist],0,False)
         ProgressBar("Analysis in ",i,len(tags),end=True)
 
-def BoxPlot(base,columnTag,title,label,saveName,dir=directory+"Analysis"):
+def BoxPlot(dados,columnTag,title,label,saveName,labelNumbers=0,dir=directory+"Analysis"):
     print("BoxPlot : "+columnTag+".")
+
+    if labelNumbers != 0: 
+            i = 0; while_called = 0
+            dadosLimited1 = []
+            dadosLimited2 = []
+            for data1,data2 in zip(dados[0],dados[1]):
+                i+=1
+                dadosLimited1.append(data1)
+                dadosLimited2.append(data2)
+                if i == labelNumbers:
+                    i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),dir=dir)
+                    dadosLimited1 = []; dadosLimited2 = []
+            if i != 0:
+                i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),dir=dir)
+                dadosLimited1 = []; dadosLimited2 = []
+            return
     
-    dados = base[columnTag].value_counts()
     boxplot = plt.boxplot(dados)
 
     plt.title(title)
