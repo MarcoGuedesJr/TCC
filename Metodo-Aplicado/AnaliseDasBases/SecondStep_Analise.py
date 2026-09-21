@@ -27,17 +27,23 @@ baseFiltred_csv = pd.read_csv(dataBasePath+filtredName)
 
 
 #Use this to show your progress in terminal.
-def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
+def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
     progress = (value / maxValue)
     progress = progress*100
     progress = round(progress)
     progress_str = str(progress)
 
-    erasor = len(message1) + len(message1) + len(progress_str)
+    timePass = ""
+    if startTime != None:
+        time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
+        hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+        timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+
+    erasor = len(message1) + len(message1) + len(progress_str) + len(timePass)
 
     print(f"\r"*erasor,
           end="", flush=True)
-    print(f"\r"+message1+progress_str+message2, end="", flush=True)
+    print(f"\r"+message1+progress_str+message2+timePass, end="", flush=True)
     if end and value >= maxValue: print("")
 
 #This Function create CSV file if this don't is created before.

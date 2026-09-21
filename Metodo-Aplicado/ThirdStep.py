@@ -37,17 +37,23 @@ column_tag = {
 clustersColumns = ["parts","rate_min","rate_max","rate_delta"]
 
 #Use this to show your progress in terminal.
-def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
+def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
     progress = (value / maxValue)
     progress = progress*100
     progress = round(progress)
     progress_str = str(progress)
 
-    erasor = len(message1) + len(message1) + len(progress_str)
+    timePass = ""
+    if startTime != None:
+        time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
+        hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+        timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+
+    erasor = len(message1) + len(message1) + len(progress_str) + len(timePass)
 
     print(f"\r"*erasor,
           end="", flush=True)
-    print(f"\r"+message1+progress_str+message2, end="", flush=True)
+    print(f"\r"+message1+progress_str+message2+timePass, end="", flush=True)
     if end and value >= maxValue: print("")
     
 #This Function create CSV file if this don't is created before.
@@ -131,7 +137,7 @@ def GetVectorForAllPlayers(players):
 
     first = True
     all_vector = { "escolhas" : None, "win" : None}
-    i = 0
+    i = 0; startTime = datetime.datetime.now()
 
     CreateCSV(os.path.join(dataBasePath,"Players_Vector_Escolha.csv"),["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"])
     CreateCSV(os.path.join(dataBasePath,"Players_Vector_Win.csv"),["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"])
@@ -146,7 +152,7 @@ def GetVectorForAllPlayers(players):
         all_vector["escolhas"] = pd.concat([all_vector["escolhas"],targetVector_escolhas],ignore_index=True)
         all_vector["win"] = pd.concat([all_vector["win"],targetVector_win],ignore_index=True)
 
-        ProgressBar("Making unifiqued vectors csv ",i,len(players_all),end=True)
+        ProgressBar("Making unifiqued vectors csv ",i,len(players_all),startTime=startTime,end=True)
 
     all_vector["escolhas"].to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
     all_vector["win"].to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
@@ -193,7 +199,7 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
 
     first = True
     models_escolhas:pd.DataFrame = None; models_wins:pd.DataFrame = None
-    i = 0
+    i = 0; startTime = datetime.datetime.now()
     for tag in all_tags:
         i+= 1
         tagVector_escolhas = vector_escolhas[vector_escolhas["Champion/Function"] == tag]
@@ -209,7 +215,7 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
                 if first: models_escolhas = ClusterKmeans(monthVector_escolhas); models_wins = ClusterKmeans(monthVector_wins); first = False
                 models_escolhas = pd.concat([models_escolhas,ClusterKmeans(monthVector_escolhas)],ignore_index=True)
                 models_wins = pd.concat([models_wins,ClusterKmeans(monthVector_wins)],ignore_index=True)
-        ProgressBar("Making clusters is in ",i,len(all_tags),end=True)
+        ProgressBar("Making clusters is in ",i,len(all_tags),startTime=startTime,end=True)
 
     results = {
         "escolha" : models_escolhas,
@@ -225,10 +231,10 @@ functions_all = filtredData[column_tag["function"]].unique()
 
 print("==============================================================")
 print("Start Second Step.")
-i = 0
+i = 0; startTime = datetime.datetime.now()
 for player in players_all:
     #CreateVectorsForPlayers(player)
-    i+= 1; ProgressBar("Analysis in ",i,len(players_all),end=True)
+    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True)
 
 #players_vectors = GetVectorForAllPlayers(players_all)
 players_vectors = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}

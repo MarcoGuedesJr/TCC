@@ -10,6 +10,14 @@ limit_percent = 1
 #Set why columns name is able to use.
 usedColumns = ["region","regionCode","gameEndTimestampToDate","championName","gameEndedInEarlySurrender","gameEndedInSurrender",
                "individualPosition","lane","role","summonerName","win"]
+
+column_tag = {
+    "player" : "summonerName",
+    "regionCode" : "regionCode",
+    "champion" : "championName",
+    "function" : "individualPosition"
+}
+
 cutPlayersParameter = 5
 
 directory = r"C:\Users\marco\Documents\TCC\Metodo-Aplicado\\"
@@ -38,10 +46,11 @@ def FilterData(playersIdentifierColumn:str,earlySurrenderIdentifier:str) -> bool
 
     filtred_csv = pd.read_csv(dataBasePath+filtredName,encoding = "utf-16")
 
-    contagem = base_csv[playersIdentifierColumn].value_counts()
-    filtred_csv = base_csv[base_csv[playersIdentifierColumn].isin(contagem[contagem.values > cutPlayersParameter].index)]
+    filtred_csv = base_csv[base_csv[earlySurrenderIdentifier] != True]
+    contagem = filtred_csv[playersIdentifierColumn].value_counts()
+    filtred_csv = filtred_csv[filtred_csv[playersIdentifierColumn].isin(contagem[contagem.values > cutPlayersParameter].index)]
     filtred_csv = filtred_csv[usedColumns]
-    filtred_csv = filtred_csv[filtred_csv[earlySurrenderIdentifier] != True]
+    
 
     SaveCSV(filtred_csv,dataBasePath+filtredName)
 
@@ -57,5 +66,5 @@ def FilterData(playersIdentifierColumn:str,earlySurrenderIdentifier:str) -> bool
 
 print("==============================================================")
 print("Start Process.")
-FilterData("summonerName","gameEndedInEarlySurrender")
+FilterData(column_tag["player"],"gameEndedInEarlySurrender")
 print("==============================================================")

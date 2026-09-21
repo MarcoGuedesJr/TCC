@@ -1,6 +1,7 @@
 import os
 import csv
 import datetime
+import calendar
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -9,8 +10,9 @@ limit_percent = 1
 
 #Set why columns name is able to use.
 
-directory = r"C:\Users\marco\Documents\TCC\Metodo-Aplicado\\"
-dataBasePath = directory+"\\DataBase\\"
+directory = "C:\\Users\\marco\\Documents\\TCC\\Metodo-Aplicado\\"
+dataBasePath = directory+"DataBase\\"
+analysPath = directory+"Analysis\\"
 
 dataBaseName = "Dataset_LeagueOfLegends_2023.csv"
 filtredName = "LOL_2023_Filtred.csv"
@@ -20,26 +22,38 @@ filtredBaseAnaliseName = "AnalysisFiltredBase.csv"
 
 column_tag = {
     "player" : "summonerName",
+    "region" : "region",
+    "regionCode" : "regionCode",
     "champion" : "championName",
     "function" : "individualPosition",
     "win" : "win"
 }
 
+monthTag = {"1" : "Janeiro","2" : "Fevereiro","3" : "Março","4" : "Abriu","5" : "Maio",
+            "6" : "Junho","7" : "Julho","8" : "Agosto","9" : "Setembro","10" : "Outubro",
+            "11": "Novembro","12" : "Dezembro"}
+
 base_csv = pd.read_csv(dataBasePath+dataBaseName)
 baseFiltred_csv = pd.read_csv(dataBasePath+filtredName)
 
 #Use this to show your progress in terminal.
-def ProgressBar(message1,value,maxValue,message2 = "%.",end = False):
+def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
     progress = (value / maxValue)
     progress = progress*100
     progress = round(progress)
     progress_str = str(progress)
 
-    erasor = len(message1) + len(message1) + len(progress_str)
+    timePass = ""
+    if startTime != None:
+        time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
+        hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+        timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+
+    erasor = len(message1) + len(message1) + len(progress_str) + len(timePass)
 
     print(f"\r"*erasor,
           end="", flush=True)
-    print(f"\r"+message1+progress_str+message2, end="", flush=True)
+    print(f"\r"+message1+progress_str+message2+timePass, end="", flush=True)
     if end and value >= maxValue: print("")
 
 #This Function create CSV file if this don't is created before.
@@ -57,6 +71,14 @@ def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
         writer = csv.writer(csvfile)
         writer.writerow(write)
     return updateCount
+
+def AdjustTimeStamp(base):
+    r:pd.DataFrame = base
+    r["gameEndTimestampToDate"] = pd.to_datetime(r["gameEndTimestampToDate"])
+    r["year"] = r["gameEndTimestampToDate"].dt.year
+    r["month"] = r["gameEndTimestampToDate"].dt.month
+    r["week"] = ((r["gameEndTimestampToDate"].dt.day -1) // 7) + 1
+    return r
 
 def CreateAnalisedCSV(fileName):
     CreateCSV(os.path.join(directory+"Analysis",fileName),["ValueTag",
@@ -77,7 +99,7 @@ def CreateAnalisedCSV(fileName):
 def Analise(base,columnTag,fileName):
 
     tags = base[columnTag].unique()
-    i = 0
+    i = 0; startTime = datetime.datetime.now()
     for tag in tags:
         i += 1
         tagBase = base[base[columnTag] == tag]
@@ -121,7 +143,7 @@ def Analise(base,columnTag,fileName):
                                                     med_lose,player_med_lose,
                                                     des_lose,
                                                     dist],0,False)
-        ProgressBar("Analysis in ",i,len(tags),end=True)
+        ProgressBar("Analysis in ",i,len(tags),startTime=startTime,end=True)
 
 def BoxPlot(dados,title,label,saveName,baseName,labelNumbers=0):
     print("BoxPlot : "+title+".")
@@ -225,11 +247,225 @@ def AnaliseFiltredDataBase():
 
     MakeBoxPlot(baseFiltred_csv,"Filtred")
 
+def MonthMorePlayed(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\PartsForMonth\\",exist_ok=True)
+    years = base["year"].unique()
+
+    i = 0; startTime1 = datetime.datetime.now()
+    for year in years:
+        i += 1; yearPath = analysPath+base_tag+"\\PartsForMonth\\"+str(year); yearBase: pd.DataFrame = base[base["year"] == year]
+        CreateCSV(os.path.join(yearPath+".csv"),["Month","min_played_for_players","max_played_for_players","med_played_for_players","all_parts"])
+        months = yearBase["month"].unique()
+        o = 0; startTime2 = datetime.datetime.now()
+        for month in months:
+            o+= 1
+            monthBase = yearBase[yearBase["month"] == month]
+            players = monthBase[column_tag["player"]].value_counts()
+            min_played = players.min()
+            max_played = players.max()
+            med_played = round(players.mean())
+            all_parts = players.sum()
+            UpdateCSV(os.path.join(yearPath+".csv"),[month,min_played,max_played,med_played,all_parts],0,False)
+            ProgressBar("Month Analysis is in ",o,len(months),startTime=startTime2,end=True)
+
+        graficBase = pd.read_csv(yearPath+".csv",encoding="utf-16")
+
+        plt.figure(figsize=(10, 6))
+
+        plt.bar(graficBase["Month"],graficBase["all_parts"])
+
+        plt.title("Partidas Jogadas p/ Mês")
+        plt.xlabel("Mês")
+        plt.ylabel("Partidas")
+
+        plt.xticks(graficBase["Month"],graficBase["Month"].astype(str).map(monthTag))
+        plt.tight_layout()
+
+        plt.savefig(yearPath+".png",dpi=300)
+        plt.close()
+
+        ProgressBar("Year Analysis is in ",i,len(years),startTime=startTime1,end=True)
+    return True
+
+def ChampionsAndFunctionsPlayedByPlayers(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\ChampionsAndFunctionsPlayedByPlayers\\",exist_ok=True)
+    dir = analysPath+base_tag+"\\ChampionsAndFunctionsPlayedByPlayers\\"
+    players = base[column_tag["player"]].unique()
+    CreateCSV(os.path.join(dir+"ChampionsAndFunctionsPlayedByPlayers.csv"),["Tag","champ_versatility","func_versatility"])
+    
+    i = 0; startTime = datetime.datetime.now()
+    for player in players:
+        i += 1
+        playerBase: pd.DataFrame = base[base[column_tag["player"]] == player]
+    
+        tag = player
+        champ_versatility = playerBase[column_tag["champion"]].nunique()
+        func_versatility = playerBase[column_tag["function"]].nunique()
+        #print([tag,champ_versatility,func_versatility])
+    
+        UpdateCSV(os.path.join(dir+"ChampionsAndFunctionsPlayedByPlayers.csv"),[tag,champ_versatility,func_versatility],0,False)
+        ProgressBar("Players Versatility Analysis is in ",i,len(players),startTime=startTime,end=True)
+
+    graficBase = pd.read_csv(dir+"ChampionsAndFunctionsPlayedByPlayers.csv",encoding="utf-16")
+
+    versatility_count = graficBase["champ_versatility"].value_counts().sort_index()
+    plt.figure(figsize=(10, 6))
+
+    plt.bar(versatility_count.index,versatility_count.values)
+
+    plt.title("Versatilidade Dos Jogadores")
+    plt.xlabel("Nível de Versatilidade")
+    plt.ylabel("Quantidade de jogadores")
+
+    plt.xticks(versatility_count.index,rotation=-90,ha="right")
+    plt.tight_layout(pad=2)
+
+    plt.savefig(dir+"ChampionsVersatilityByPlayers.png",dpi=300)
+    plt.close()
+
+    versatility_count = graficBase["func_versatility"].value_counts().sort_index()
+    plt.figure(figsize=(10, 6))
+    
+    plt.bar(versatility_count.index,versatility_count.values)
+    
+    plt.title("Versatilidade Dos Jogadores")
+    plt.xlabel("Nível de Versatilidade")
+    plt.ylabel("Quantidade de jogadores")
+    
+    plt.xticks(versatility_count.index,rotation=0)
+    plt.tight_layout()
+    
+    plt.savefig(dir+"FunctionsVersatilityByPlayers.png",dpi=300)
+    plt.close()
+
+    return
+
+def PlayersForServers(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\PlayersForServers\\",exist_ok=True)
+    dir = analysPath+base_tag+"\\PlayersForServers\\"
+    regionCodes = base[column_tag["regionCode"]].unique()
+    for region in regionCodes:
+        CreateCSV(os.path.join(dir+region+"PlayerBase.csv"),[])
+        #print("Region:"+region)
+        #print("Columtag:"+column_tag["regionCode"])
+        regionBase = base[base[column_tag["regionCode"]] == region]
+        regionBase.to_csv(dir+region+"PlayerBase.csv")
+
+    graficBase = base
+
+    players_in_regions = (graficBase.groupby(column_tag["regionCode"])[column_tag["player"]].nunique().sort_index())
+
+    plt.figure(figsize=(10, 6))
+
+    plt.bar(players_in_regions.index,players_in_regions.values)
+
+    plt.title("Quantidade de Jogadores por Região")
+    plt.xlabel("Região")
+    plt.ylabel("Quantidade de jogadores")
+
+    plt.xticks(players_in_regions.index)
+
+    plt.tight_layout()
+    plt.savefig(dir+"PlayersForServers.png", dpi=300)
+    plt.close()
+
+    games_in_regions = graficBase[column_tag["regionCode"]].value_counts().sort_index()
+
+    plt.figure(figsize=(10, 6))
+
+    plt.bar(games_in_regions.index,games_in_regions.values)
+
+    plt.title("Quantidade de Partidas por Região")
+    plt.xlabel("Região")
+    plt.ylabel("Quantidade de partidas")
+
+    plt.xticks(games_in_regions.index)
+
+    plt.tight_layout()
+    plt.savefig(dir+"GamesForServers.png", dpi=300)
+    plt.close()
+    
+    return
+
+def FunctionsForChampions(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\FunctionsForChampions\\",exist_ok=True)
+    dir = analysPath+base_tag+"\\FunctionsForChampions\\"
+    champions = base[column_tag["champion"]].unique()
+
+    i = 0; startTIme = datetime.datetime.now()
+    for champion in champions:
+        CreateCSV(os.path.join(dir+champion+"FunctionsPlayed.csv"),["Function", "Played"])
+        championCsv = pd.read_csv(dir+champion+"FunctionsPlayed.csv",encoding="utf-16")
+        championBase = base[base[column_tag["champion"]] == champion]
+
+        FunctionsNumberPlayed = championBase[column_tag["function"]].value_counts()
+
+        championCsv = pd.DataFrame({
+            "Function": FunctionsNumberPlayed.index,
+            "Played": FunctionsNumberPlayed.values})
+
+        championCsv.to_csv(dir+champion+"FunctionsPlayed.csv",index=False,encoding="utf-16")
+
+        plt.figure(figsize=(10, 6))
+
+        plt.bar(championCsv["Function"],championCsv["Played"])
+
+        plt.title("Distribuição de Funções para "+champion)
+        plt.xlabel("Funções")
+        plt.ylabel("Partidas")
+
+        plt.xticks(championCsv["Function"]) #graficBase["Month"].astype(str).map(monthTag)
+        plt.tight_layout()
+
+        plt.savefig(dir+champion+"FunctionsPlayed.png",dpi=300)
+        plt.close()
+
+        i += 1
+        ProgressBar("Function for Champion Analysis is in ",i,len(champions),startTime=startTIme,end=True)
+    return
+
+def RegionForPlayers(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\MultiRegionPlayers\\",exist_ok=True)
+    CreateCSV(os.path.join(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.csv"),["Player","region","region_code"])
+    regionsByPlayer = (base.groupby(column_tag["player"])[column_tag["regionCode"]].nunique().sort_values(ascending=False))
+
+    playersMultipleRegions = regionsByPlayer[regionsByPlayer > 1]
+
+    if (regionsByPlayer > 1).any():
+        print("Existem jogadores presentes em mais de uma região.")
+        multipleRegionsBase = base[base[column_tag["player"]].isin(playersMultipleRegions.index)]
+        multipleRegionsBase = multipleRegionsBase[[column_tag["player"],column_tag["regionCode"],column_tag["region"]]]
+        multipleRegionsBase = multipleRegionsBase.drop_duplicates()
+        multipleRegionsBase = multipleRegionsBase.groupby(column_tag["player"])
+        multipleRegionsBase = multipleRegionsBase.agg({column_tag["regionCode"]: lambda x: "/".join(x),column_tag["region"]: lambda x: "/".join(x)})
+        multipleRegionsBase = multipleRegionsBase.reset_index()
+        multipleRegionsBase.to_csv(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.csv",index=False,encoding="utf-16")
+        print(playersMultipleRegions)
+    else:
+        print("Nenhum jogador aparece em mais de uma região.")
+    return
+
 print("==============================================================")
 print("Start Analysis First Step.")
+base_csv = AdjustTimeStamp(base_csv); baseFiltred_csv = AdjustTimeStamp(baseFiltred_csv)
 #AnaliseDataBase()
 #AnaliseFiltredDataBase()
-MakeBoxPlot(baseFiltred_csv,"Filtred")
+#MakeBoxPlot(baseFiltred_csv,"Filtred")
+
+#MonthMorePlayed(base_csv,"base")
+#MonthMorePlayed(baseFiltred_csv,"filtred")
+
+#ChampionsAndFunctionsPlayedByPlayers(base_csv,"base") #Bem demorado, umas 7h/8h.
+#ChampionsAndFunctionsPlayedByPlayers(baseFiltred_csv,"filtred")
+
+#PlayersForServers(base_csv,"base")
+#PlayersForServers(baseFiltred_csv,"filtred")
+
+#FunctionsForChampions(base_csv,"base")
+#FunctionsForChampions(baseFiltred_csv,"filtred")
+
+RegionForPlayers(base_csv,"base")
+RegionForPlayers(baseFiltred_csv,"filtred")
 print("==============================================================")
 
 
