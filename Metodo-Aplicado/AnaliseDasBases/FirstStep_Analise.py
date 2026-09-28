@@ -4,6 +4,7 @@ import datetime
 import calendar
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 
 textMode = False
 limit_percent = 1
@@ -29,12 +30,18 @@ column_tag = {
     "win" : "win"
 }
 
-monthTag = {"1" : "Janeiro","2" : "Fevereiro","3" : "Março","4" : "Abriu","5" : "Maio",
+monthTag = {"1" : "Janeiro","2" : "Fevereiro","3" : "Março","4" : "Abril","5" : "Maio",
             "6" : "Junho","7" : "Julho","8" : "Agosto","9" : "Setembro","10" : "Outubro",
             "11": "Novembro","12" : "Dezembro"}
 
 base_csv = pd.read_csv(dataBasePath+dataBaseName)
 baseFiltred_csv = pd.read_csv(dataBasePath+filtredName)
+
+def MakeTimePassString(startTime,endTime):
+    time = endTime-startTime; seconds = int(time.total_seconds())
+    hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+    timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+    return timePass
 
 #Use this to show your progress in terminal.
 def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
@@ -45,9 +52,10 @@ def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=N
 
     timePass = ""
     if startTime != None:
-        time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
-        hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
-        timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+        timePass = MakeTimePassString(startTime,datetime.datetime.now())
+        #time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
+        #hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+        #timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
 
     erasor = len(message1) + len(message1) + len(progress_str) + len(timePass)
 
@@ -114,18 +122,18 @@ def Analise(base,columnTag,fileName):
 
         min_escolha = tagCount.min();  player_min_escolha = tagCount.idxmin()
         max_escolha = tagCount.max();  player_max_escolha = tagCount.idxmax()
-        med_escolha = round(tagCount.mean()); player_med_escolha = (tagCount - tagCount.mean()).abs().idxmin()
-        des_escolha = round(tagCount.std())
+        med_escolha = round(tagCount.mean(),2); player_med_escolha = (tagCount - tagCount.mean()).abs().idxmin()
+        des_escolha = round(tagCount.std(),2)
 
         min_win = tagWin.min();  player_min_win = tagWin.idxmin()
         max_win = tagWin.max();  player_max_win = tagWin.idxmax()
-        med_win = round(tagWin.mean()); player_med_win = (tagWin - tagWin.mean()).abs().idxmin()
-        des_win = round(tagWin.std())
+        med_win = round(tagWin.mean(),2); player_med_win = (tagWin - tagWin.mean()).abs().idxmin()
+        des_win = round(tagWin.std(),2)
 
         min_lose = tagLose.min();  player_min_lose = tagLose.idxmin()
         max_lose = tagLose.max();  player_max_lose = tagLose.idxmax()
-        med_lose = round(tagLose.mean()); player_med_lose = (tagLose - tagLose.mean()).abs().idxmin()
-        des_lose = round(tagLose.std())
+        med_lose = round(tagLose.mean(),2); player_med_lose = (tagLose - tagLose.mean()).abs().idxmin()
+        des_lose = round(tagLose.std(),2)
 
         dist = tagCount.sum()
 
@@ -145,7 +153,7 @@ def Analise(base,columnTag,fileName):
                                                     dist],0,False)
         ProgressBar("Analysis in ",i,len(tags),startTime=startTime,end=True)
 
-def BoxPlot(dados,title,label,saveName,baseName,labelNumbers=0):
+def BoxPlot(dados,title,label,saveName,path,labelNumbers=0):
     print("BoxPlot : "+title+".")
 
     if labelNumbers != 0: 
@@ -157,10 +165,10 @@ def BoxPlot(dados,title,label,saveName,baseName,labelNumbers=0):
             dadosLimited1.append(data1)
             dadosLimited2.append(data2)
             if i == labelNumbers:
-                i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),baseName)
+                i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),path)
                 dadosLimited1 = []; dadosLimited2 = []
         if i != 0:
-            i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),baseName)
+            i=0; while_called+=1; BoxPlot([dadosLimited1,dadosLimited2],title+str(while_called),label,saveName+str(while_called),path)
             dadosLimited1 = []; dadosLimited2 = []
         return
     
@@ -174,7 +182,7 @@ def BoxPlot(dados,title,label,saveName,baseName,labelNumbers=0):
         
     
     #plt.show()
-    plt.savefig(directory+"Analysis\\BoxPlot\\"+baseName+"\\"+saveName+".png",dpi=300,bbox_inches="tight")
+    plt.savefig(path+".png",dpi=300,bbox_inches="tight")
     plt.close()
 
 def MakeBoxPlot(base,baseName):
@@ -219,11 +227,26 @@ def MakeBoxPlot(base,baseName):
 
     #BoxPlot(base,column_tag["player"],"Box Plot "+baseName+": Maximo De Partidas P/ Player","Partidas Jogadas",baseName+"_Players")
 
-    BoxPlot(dados_champions_escolha,"Box Plot "+baseName+": Escolhas P/ Campeão","Vezes Escolhidas P/ Player",baseName+"_Champions",baseName,labelNumbers=5)
-    BoxPlot(dados_champions_win,"Box Plot "+baseName+": Vitorias P/ Campeão","Vitorias P/ Player",baseName+"_ChampionsWin",baseName,labelNumbers=5)
+    #dados,title,label,saveName,path,labelNumbers=0
+    BoxPlot(dados=dados_champions_escolha,
+            title="Box Plot "+baseName+": Escolhas P/ Campeão",
+            label="Vezes Escolhidas P/ Player",
+            path=baseName,
+            labelNumbers=5)
+    BoxPlot(dados=dados_champions_win,
+            title="Box Plot "+baseName+": Vitorias P/ Campeão",
+            label="Vitorias P/ Player",
+            path=baseName,
+            labelNumbers=5)
     
-    BoxPlot(dados_functions_escolha,"Box Plot "+baseName+": Escolhas P/ Função","Vezes Escolhidas P/ Player",baseName+"_Functions",baseName)
-    BoxPlot(dados_functions_win,"Box Plot "+baseName+": Vitorias P/ Função","Vitorias P/ Player",baseName+"_FunctionsWin",baseName)
+    BoxPlot(dados=dados_functions_escolha,
+            title="Box Plot "+baseName+": Escolhas P/ Função",
+            label="Vezes Escolhidas P/ Player",
+            path=baseName)
+    BoxPlot(dados=dados_functions_win,
+            title="Box Plot "+baseName+": Vitorias P/ Função",
+            label="Vitorias P/ Player",
+            path=baseName)
 
 def MakeAnalysisDirs():
     os.makedirs(directory+"Analysis", exist_ok=True)
@@ -312,6 +335,8 @@ def ChampionsAndFunctionsPlayedByPlayers(base:pd.DataFrame,base_tag:str):
     plt.figure(figsize=(10, 6))
 
     plt.bar(versatility_count.index,versatility_count.values)
+
+    #plt.bar(bins =(0,0))
 
     plt.title("Versatilidade Dos Jogadores")
     plt.xlabel("Nível de Versatilidade")
@@ -439,33 +464,138 @@ def RegionForPlayers(base:pd.DataFrame,base_tag:str):
         multipleRegionsBase = multipleRegionsBase.groupby(column_tag["player"])
         multipleRegionsBase = multipleRegionsBase.agg({column_tag["regionCode"]: lambda x: "/".join(x),column_tag["region"]: lambda x: "/".join(x)})
         multipleRegionsBase = multipleRegionsBase.reset_index()
+        multipleRegionsBase["variation"] = (multipleRegionsBase[column_tag["regionCode"]].str.count("/") + 1)
         multipleRegionsBase.to_csv(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.csv",index=False,encoding="utf-16")
         print(playersMultipleRegions)
     else:
         print("Nenhum jogador aparece em mais de uma região.")
+
+    graficBase = pd.read_csv(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.csv",encoding="utf-16")
+
+    variationCount = (graficBase["variation"].value_counts().sort_index())
+
+    plt.figure(figsize=(10, 6))
+    
+    plt.bar(variationCount.index,variationCount.values)
+
+    plt.title("Variação de jogadores em mais de uma região")
+    plt.xlabel("Quantidade de regiões jogadas")
+    plt.ylabel("Número de jogadores")
+
+    plt.xticks(variationCount.index) #graficBase["Month"].astype(str).map(monthTag)
+    plt.tight_layout()
+
+    plt.savefig(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.png",dpi=300)
+    plt.close()
+    
+    return
+
+def PuuidAndAccountIdTest(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\PuuidAndAccountIdTest\\",exist_ok=True)
+    CreateCSV(os.path.join(analysPath+base_tag+"\\PuuidAndAccountIdTest\\PuuidAndAccountIdTest.csv"),["puuid","accountId","region","region_code"])
+    playerNames = base[column_tag["player"]].unique()
+    puuid = base["puuid"].unique()
+    accountId = base["accountId"].unique()
+    print("PlayerNameLeng :" + str(len(playerNames)) + " | PuuidLeng :" + str(len(puuid)) + " | AccountIdLeng :"+ str(len(accountId)))
+
+    puuidAnalysis = base.groupby("puuid")
+    puuidAnalysis = puuidAnalysis.agg(
+        names=(column_tag["player"], "nunique"),
+        accountIds=("accountId", "nunique"),
+        regions=(column_tag["regionCode"], "nunique"))
+    puuidAnalysis = puuidAnalysis.reset_index()
+
+    puuidAnalysis.to_csv(analysPath+base_tag+"\\PuuidAndAccountIdTest\\PuuidAndAccountIdTest.csv",index=False,encoding="utf-16")
+
+    puuidAnalysis = puuidAnalysis[puuidAnalysis["puuid"] != "Player Not Found"]
+
+    graficBase = puuidAnalysis
+    
+    variationCount = (graficBase["names"].value_counts().sort_index())
+    
+    plt.figure(figsize=(10, 6))
+        
+    bars = plt.bar(variationCount.index,variationCount.values)
+    plt.bar_label(bars)
+    
+    plt.title("Player Names For Unique Puuid")
+    plt.xlabel("Player Name Variation")
+    plt.ylabel("Number Of Puuids")
+    
+    plt.xticks(variationCount.index) #graficBase["Month"].astype(str).map(monthTag)
+    plt.tight_layout()
+    
+    plt.savefig(analysPath+base_tag+"\\PuuidAndAccountIdTest\\PuuidAndAccountIdTest.png",dpi=300)
+    plt.close()
+    return
+
+def PlayerLevel(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\PlayerLevel\\",exist_ok=True)
+    #CreateCSV(os.path.join(analysPath+base_tag+"\\PlayerLevel\\PlayerLevel.csv"),["puuid","accountId","region","region_code"])
+    
+    graficBase = base
+        
+    variationCount = graficBase["summonerLevel"].unique()
+        
+    plt.figure(figsize=(10, 6))
+            
+    bars = plt.bar(variationCount.index,variationCount.values)
+
+    
+
+    return
+
+def PlayerPuuidAdjust(base:pd.DataFrame,base_tag:str):
+    os.makedirs(analysPath+base_tag+"\\PlayerPuuidAdjust\\",exist_ok=True)
+    otherCsv = base[base["puuid"] != "Player Not Found"].copy()
+    pnfCsv = base[base["puuid"] == "Player Not Found"].copy()
+    otherCsv["playerIdRemaster"] = (otherCsv[column_tag["player"]] + otherCsv[column_tag["regionCode"]])
+    pnfCsv["playerIdRemaster"] = (pnfCsv[column_tag["player"]] + pnfCsv[column_tag["regionCode"]])
+
+    otherPlayers = otherCsv["playerIdRemaster"].unique()
+    pnfPlayers = pnfCsv["playerIdRemaster"].unique()
+
+    hasMatch = pnfPlayers[np.isin(pnfPlayers, otherPlayers)].size
+
+    print("Pnf Players : "+str(len(pnfPlayers)))
+    print("Double Players Searched : "+str(hasMatch))
+
+    duplicatedPlayers = pnfCsv[pnfCsv["playerIdRemaster"].isin(otherCsv["playerIdRemaster"])].copy()
+    notDuplicatedPlayers = pnfCsv[~pnfCsv["playerIdRemaster"].isin(otherCsv["playerIdRemaster"])].copy()
+
+    duplicatedPlayers.to_csv(analysPath+base_tag+"\\PlayerPuuidAdjust\\DuplicatedPlayers.csv",index=False,encoding="utf-16")
+    notDuplicatedPlayers.to_csv(analysPath+base_tag+"\\PlayerPuuidAdjust\\NotDuplicatedPlayers.csv",index=False,encoding="utf-16")
+
     return
 
 print("==============================================================")
 print("Start Analysis First Step.")
 base_csv = AdjustTimeStamp(base_csv); baseFiltred_csv = AdjustTimeStamp(baseFiltred_csv)
-#AnaliseDataBase()
-#AnaliseFiltredDataBase()
-#MakeBoxPlot(baseFiltred_csv,"Filtred")
+AnaliseDataBase()
+AnaliseFiltredDataBase()
+MakeBoxPlot(baseFiltred_csv,"Filtred")
 
-#MonthMorePlayed(base_csv,"base")
-#MonthMorePlayed(baseFiltred_csv,"filtred")
+MonthMorePlayed(base_csv,"base")
+MonthMorePlayed(baseFiltred_csv,"filtred")
 
 #ChampionsAndFunctionsPlayedByPlayers(base_csv,"base") #Bem demorado, umas 7h/8h.
-#ChampionsAndFunctionsPlayedByPlayers(baseFiltred_csv,"filtred")
+ChampionsAndFunctionsPlayedByPlayers(baseFiltred_csv,"filtred")
 
-#PlayersForServers(base_csv,"base")
-#PlayersForServers(baseFiltred_csv,"filtred")
+PlayersForServers(base_csv,"base")
+PlayersForServers(baseFiltred_csv,"filtred")
 
-#FunctionsForChampions(base_csv,"base")
-#FunctionsForChampions(baseFiltred_csv,"filtred")
+FunctionsForChampions(base_csv,"base")
+FunctionsForChampions(baseFiltred_csv,"filtred")
 
 RegionForPlayers(base_csv,"base")
 RegionForPlayers(baseFiltred_csv,"filtred")
+
+PuuidAndAccountIdTest(base_csv,"base")
+PuuidAndAccountIdTest(baseFiltred_csv,"filtred")
+
+PlayerPuuidAdjust(base_csv,"base")
+PlayerPuuidAdjust(baseFiltred_csv,"filtred")
+
 print("==============================================================")
 
 

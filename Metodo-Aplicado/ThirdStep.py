@@ -30,11 +30,19 @@ updateCount = 0
 
 column_tag = {
     "player" : "summonerName",
+    "playerIdentifier": "playerIdRemaster",
+    "regionCode" : "regionCode",
     "champion" : "championName",
     "function" : "individualPosition"
 }
 
 clustersColumns = ["parts","rate_min","rate_max","rate_delta"]
+
+def MakeTimePassString(startTime,endTime):
+    time = endTime-startTime; seconds = int(time.total_seconds())
+    hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+    timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+    return timePass
 
 #Use this to show your progress in terminal.
 def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
@@ -45,9 +53,10 @@ def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=N
 
     timePass = ""
     if startTime != None:
-        time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
-        hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
-        timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
+        timePass = MakeTimePassString(startTime,datetime.datetime.now())
+        #time = datetime.datetime.now()-startTime; seconds = int(time.total_seconds())
+        #hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
+        #timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
 
     erasor = len(message1) + len(message1) + len(progress_str) + len(timePass)
 
@@ -136,7 +145,7 @@ def CreateVectorsForPlayers(player_name):
 def GetVectorForAllPlayers(players):
 
     first = True
-    all_vector = { "escolhas" : None, "win" : None}
+    all_vector = { "escolha" : None, "win" : None}
     i = 0; startTime = datetime.datetime.now()
 
     CreateCSV(os.path.join(dataBasePath,"Players_Vector_Escolha.csv"),["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"])
@@ -147,14 +156,14 @@ def GetVectorForAllPlayers(players):
         targetVector_escolhas = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
         targetVector_win = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
 
-        if first: all_vector["escolhas"] = targetVector_escolhas; all_vector["win"] = targetVector_win; first = False; continue
+        if first: all_vector["escolha"] = targetVector_escolhas; all_vector["win"] = targetVector_win; first = False; continue
 
-        all_vector["escolhas"] = pd.concat([all_vector["escolhas"],targetVector_escolhas],ignore_index=True)
+        all_vector["escolha"] = pd.concat([all_vector["escolha"],targetVector_escolhas],ignore_index=True)
         all_vector["win"] = pd.concat([all_vector["win"],targetVector_win],ignore_index=True)
 
         ProgressBar("Making unifiqued vectors csv ",i,len(players_all),startTime=startTime,end=True)
 
-    all_vector["escolhas"].to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
+    all_vector["escolha"].to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
     all_vector["win"].to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
 
     return all_vector
@@ -165,30 +174,39 @@ def ClusterKmeans(vectors):
     vectors["cluster"] = kmeans.labels_
 
     centroids = kmeans.cluster_centers_
+    clusters_med = {
+        0: round(vectors[vectors["cluster"] == 0]["rate_max"].mean(), 2),
+        1: round(vectors[vectors["cluster"] == 1]["rate_max"].mean(), 2),
+        2: round(vectors[vectors["cluster"] == 2]["rate_max"].mean(), 2)
+    }
 
-    rate_max_index = clustersColumns.index("rate_max")
-
-    #":" é usado para referenciar todas as linhas
-    #"rate_max_index" é o numero da coluna que os dados serão buscados.
-    #Essencialmente, todas as linhas da coluna rate_max_index.
-    rate_max_values = centroids[:, rate_max_index]
-    print("rate_max_values : ")
-    print(rate_max_values)
-    print("centroids : ")
-    print(centroids)
-
-    ordered_clusters = np.argsort(rate_max_values)
+    #print("Old Cluster_Med : "); print(clusters_med)
+    ordered_clusters = sorted(clusters_med,key=clusters_med.get)
+    #print("Sorted Cluster_Med : "); print(clusters_med)
 
     cluster_names = {
         ordered_clusters[0]: "Low",
         ordered_clusters[1]: "Average",
         ordered_clusters[2]: "High"
     }
-    print("Cluster for Classifier : ")
-    print(cluster_names)
+    #print("Cluster for Classifier : ")
+    #print(cluster_names)
 
-    vectors["commitment"] = vectors["cluster"].map(cluster_names)
+    vectors["clusterLabel"] = vectors["cluster"].map(cluster_names)
 
+    #rate_max_index = clustersColumns.index("rate_max")
+
+    #":" é usado para referenciar todas as linhas
+    #"rate_max_index" é o numero da coluna que os dados serão buscados.
+    #Essencialmente, todas as linhas da coluna rate_max_index.
+    #rate_max_values = centroids[:, rate_max_index]
+    #print("rate_max_values : ")
+    #print(rate_max_values)
+    #print("centroids : ")
+    #print(centroids)
+
+    #A media calculada pelo valor maximo de cada grupo
+    #(exp:Com base em todos os rate_max do grupo 0, ele é maior que a media de todos os rate_max do grupo 1 e do grupo 2?)
     return vectors
 
 def ClusterStep(players_vectors,players_all,champions_all,functions_all):
@@ -215,7 +233,7 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
                 if first: models_escolhas = ClusterKmeans(monthVector_escolhas); models_wins = ClusterKmeans(monthVector_wins); first = False
                 models_escolhas = pd.concat([models_escolhas,ClusterKmeans(monthVector_escolhas)],ignore_index=True)
                 models_wins = pd.concat([models_wins,ClusterKmeans(monthVector_wins)],ignore_index=True)
-        ProgressBar("Making clusters is in ",i,len(all_tags),startTime=startTime,end=True)
+        ProgressBar("Making Vectors is in ",i,len(all_tags),startTime=startTime,end=True)
 
     results = {
         "escolha" : models_escolhas,
@@ -230,17 +248,18 @@ champions_all = filtredData[column_tag["champion"]].unique()
 functions_all = filtredData[column_tag["function"]].unique()
 
 print("==============================================================")
+
 print("Start Second Step.")
 i = 0; startTime = datetime.datetime.now()
 for player in players_all:
     #CreateVectorsForPlayers(player)
-    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True)
+    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True) #00:14:59
 
-#players_vectors = GetVectorForAllPlayers(players_all)
+#players_vectors = GetVectorForAllPlayers(players_all) #00:06:33
 players_vectors = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
+players_vectors["escolha"] = players_vectors["escolha"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
+players_vectors["win"] = players_vectors["win"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
 
-player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all)
-
-
+player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all) #00:01:24
 
 print("==============================================================")
