@@ -5,6 +5,8 @@ import pandas as pd
 import calendar
 from pathlib import Path
 from sklearn.cluster import KMeans
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 import numpy as np
 
 #contagem = df['categoria'].value_counts()
@@ -17,7 +19,7 @@ import numpy as np
 #from sklearn.cluster import KMeans
 #import numpy as np
 
-#from sklearn.tree import DecisionTreeClassifier
+#DecisionTreeClassifier
 
 directory = "C:\\Users\\marco\\Documents\\TCC\\Metodo-Aplicado\\"
 dataBasePath = directory+"\\DataBase\\"
@@ -37,6 +39,7 @@ column_tag = {
 }
 
 clustersColumns = ["parts","rate_min","rate_max","rate_delta"]
+treeColumn = "clusterLabel"
 
 def MakeTimePassString(startTime,endTime):
     time = endTime-startTime; seconds = int(time.total_seconds())
@@ -123,8 +126,6 @@ def CreateVectors(base,player_tag,dir):
                            taxa_max_vitoria,  #rate_max
                            taxa_delta_vitoria #rate_delta
                            ],0,False)
-                #kmeans_escolha = KMeans(n_clusters=3,random_state=42)
-                #kmeans_vitoria = KMeans(n_clusters=3,random_state=42)
 
 #This Function is used for makin path and create all CSV about champions and functions of player.
 def CreateVectorsForPlayers(player_name):
@@ -154,7 +155,7 @@ def GetVectorForAllPlayers(players):
         i += 1
         playerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
         targetVector_escolhas = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
-        targetVector_win = pd.read_csv(playerDirectory+"PlayerVector_Escolha.csv",encoding="utf-16")
+        targetVector_win = pd.read_csv(playerDirectory+"PlayerVector_Win.csv",encoding="utf-16")
 
         if first: all_vector["escolha"] = targetVector_escolhas; all_vector["win"] = targetVector_win; first = False; continue
 
@@ -170,43 +171,43 @@ def GetVectorForAllPlayers(players):
 
 def ClusterKmeans(vectors):
     k = 3; kmeans = KMeans(n_clusters = k, random_state=42)
-    kmeans.fit(vectors[clustersColumns])
-    vectors["cluster"] = kmeans.labels_
 
-    centroids = kmeans.cluster_centers_
-    clusters_med = {
-        0: round(vectors[vectors["cluster"] == 0]["rate_max"].mean(), 2),
-        1: round(vectors[vectors["cluster"] == 1]["rate_max"].mean(), 2),
-        2: round(vectors[vectors["cluster"] == 2]["rate_max"].mean(), 2)
-    }
+    min_parts = 2
+    enable_vectors = vectors[vectors["parts"] >= min_parts].copy()
+    disable_vectors = vectors[vectors["parts"] < min_parts].copy()
 
-    #print("Old Cluster_Med : "); print(clusters_med)
-    ordered_clusters = sorted(clusters_med,key=clusters_med.get)
-    #print("Sorted Cluster_Med : "); print(clusters_med)
+    distinct_vectors = len(enable_vectors[clustersColumns].drop_duplicates())
+    month_enable = distinct_vectors >= k
 
-    cluster_names = {
-        ordered_clusters[0]: "Low",
-        ordered_clusters[1]: "Average",
-        ordered_clusters[2]: "High"
-    }
-    #print("Cluster for Classifier : ")
-    #print(cluster_names)
+    if month_enable:
+        kmeans.fit(enable_vectors[clustersColumns])
+        enable_vectors["cluster"] = kmeans.labels_
+    else:
+        enable_vectors["cluster"] = -1
+    disable_vectors["cluster"] = -1
 
-    vectors["clusterLabel"] = vectors["cluster"].map(cluster_names)
+    if month_enable:
+        clusters_med = {
+            0: round(enable_vectors[enable_vectors["cluster"] == 0]["rate_max"].mean(), 2),
+            1: round(enable_vectors[enable_vectors["cluster"] == 1]["rate_max"].mean(), 2),
+            2: round(enable_vectors[enable_vectors["cluster"] == 2]["rate_max"].mean(), 2)}
+        ordered_clusters = sorted(clusters_med,key=clusters_med.get)
+        cluster_names = {
+            ordered_clusters[0]: "Low",
+            ordered_clusters[1]: "Average",
+            ordered_clusters[2]: "High"}
+        enable_vectors["clusterLabel"] = enable_vectors["cluster"].map(cluster_names)
+    else:
+        enable_vectors["clusterLabel"] = "Minimum Variation Not Reached"
+        print("Vetor Disable:"); print(disable_vectors)
+        print("Vetor Enable:"); print(enable_vectors); vectors = enable_vectors
 
-    #rate_max_index = clustersColumns.index("rate_max")
+    if len(disable_vectors) != 0:
+        disable_vectors["clusterLabel"] = "Minimum Parts Not Reached"
+        #print("Vetor Disable:"); print(disable_vectors)
+        vectors = pd.concat([enable_vectors,disable_vectors],ignore_index=True)
 
-    #":" é usado para referenciar todas as linhas
-    #"rate_max_index" é o numero da coluna que os dados serão buscados.
-    #Essencialmente, todas as linhas da coluna rate_max_index.
-    #rate_max_values = centroids[:, rate_max_index]
-    #print("rate_max_values : ")
-    #print(rate_max_values)
-    #print("centroids : ")
-    #print(centroids)
-
-    #A media calculada pelo valor maximo de cada grupo
-    #(exp:Com base em todos os rate_max do grupo 0, ele é maior que a media de todos os rate_max do grupo 1 e do grupo 2?)
+    if month_enable != True: print("Vetor Complet:"); print(vectors)
     return vectors
 
 def ClusterStep(players_vectors,players_all,champions_all,functions_all):
@@ -233,7 +234,7 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
                 if first: models_escolhas = ClusterKmeans(monthVector_escolhas); models_wins = ClusterKmeans(monthVector_wins); first = False
                 models_escolhas = pd.concat([models_escolhas,ClusterKmeans(monthVector_escolhas)],ignore_index=True)
                 models_wins = pd.concat([models_wins,ClusterKmeans(monthVector_wins)],ignore_index=True)
-        ProgressBar("Making Vectors is in ",i,len(all_tags),startTime=startTime,end=True)
+        ProgressBar("Making Clusters is in ",i,len(all_tags),startTime=startTime,end=True)
 
     results = {
         "escolha" : models_escolhas,
@@ -243,7 +244,66 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
     models_wins.to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
     return results
 
-players_all = filtredData[column_tag["player"]].unique()
+def RandomTree(vectors):
+    tree = RandomForestClassifier(n_estimators=100,random_state=42)
+
+    min_parts = 2
+    enable_vectors = vectors[vectors["cluster"] != -1].copy() #Separa os vetores que de fato vamos utilizar.
+    disable_vectors = vectors[vectors["cluster"] == -1].copy() #Separa os vetores que não passaram pela verificação do K-Means
+                                                               #ou seja, foram "excluidos".
+
+    distinct_vectors = enable_vectors[treeColumn].nunique()
+    month_enable = distinct_vectors >= 3
+
+    if month_enable:
+        x = enable_vectors[clustersColumns]; y = enable_vectors[treeColumn]
+        tree.fit(x,y)
+        enable_vectors["classifierLabel"] = tree.predict(x)
+
+    if len(disable_vectors) > 0:
+        disable_vectors["classifierLabel"] = disable_vectors["clusterLabel"]
+        vectors = pd.concat([enable_vectors,disable_vectors],ignore_index=True)
+
+    if month_enable != True: print("Vetor Complet:"); print(vectors)
+    return vectors
+
+def TreeStep(players_vectors,players_all,champions_all,functions_all):
+    vector_escolhas = players_vectors["escolha"]
+    vector_wins = players_vectors["win"]
+
+    all_tags = np.concatenate((champions_all,functions_all))
+
+    first = True
+    models_escolhas:pd.DataFrame = None; models_wins:pd.DataFrame = None
+    i = 0; startTime = datetime.datetime.now()
+    for tag in all_tags:
+        i+= 1
+        tagVector_escolhas = vector_escolhas[vector_escolhas["Champion/Function"] == tag]
+        tagVector_wins = vector_wins[vector_wins["Champion/Function"] == tag]
+        years = tagVector_escolhas["Year"].unique()
+        for year in years:
+            yearVector_escolhas = tagVector_escolhas[tagVector_escolhas["Year"] == year]
+            yearVector_wins = tagVector_wins[tagVector_wins["Year"] == year]
+            months = yearVector_escolhas["Month"].unique()
+            for month in months:
+                monthVector_escolhas = yearVector_escolhas[yearVector_escolhas["Month"] == month]
+                monthVector_wins = yearVector_wins[yearVector_wins["Month"] == month]
+
+                if first: models_escolhas = RandomTree(monthVector_escolhas); models_wins = RandomTree(monthVector_wins); first = False
+                
+                models_escolhas = pd.concat([models_escolhas,RandomTree(monthVector_escolhas)],ignore_index=True)
+                models_wins = pd.concat([models_wins,RandomTree(monthVector_wins)],ignore_index=True)
+        ProgressBar("Making Random Florest is in ",i,len(all_tags),startTime=startTime,end=True)
+
+    results = {
+        "escolha" : models_escolhas,
+        "win" : models_wins
+    }
+    models_escolhas.to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
+    models_wins.to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
+    return results
+
+players_all = filtredData[column_tag["playerIdentifier"]].unique()
 champions_all = filtredData[column_tag["champion"]].unique()
 functions_all = filtredData[column_tag["function"]].unique()
 
@@ -253,13 +313,18 @@ print("Start Second Step.")
 i = 0; startTime = datetime.datetime.now()
 for player in players_all:
     #CreateVectorsForPlayers(player)
-    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True) #00:14:59
+    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True) #00:08:46 ~ 00:14:59
 
-#players_vectors = GetVectorForAllPlayers(players_all) #00:06:33
+#players_vectors = GetVectorForAllPlayers(players_all) #00:06:17 ~ 00:08:03
 players_vectors = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
 players_vectors["escolha"] = players_vectors["escolha"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
 players_vectors["win"] = players_vectors["win"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
 
-player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all) #00:01:24
+#player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all) #00:00:33 ~ 00:01:24
+player_models = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
+player_models["escolha"] = player_models["escolha"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel"]]
+player_models["win"] = player_models["win"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel"]]
+
+player_tree = TreeStep(player_models,players_all,champions_all,functions_all)
 
 print("==============================================================")
