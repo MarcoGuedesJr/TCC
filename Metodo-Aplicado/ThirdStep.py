@@ -6,7 +6,9 @@ import calendar
 from pathlib import Path
 from sklearn.cluster import KMeans
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import VotingClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 import numpy as np
 
 #contagem = df['categoria'].value_counts()
@@ -244,10 +246,9 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
     models_wins.to_csv(dataBasePath+"Players_Vector_Win.csv", index=False)
     return results
 
-def RandomTree(vectors):
+def RandomTree(allVectors,vectors):
     tree = RandomForestClassifier(n_estimators=100,random_state=42)
 
-    min_parts = 2
     enable_vectors = vectors[vectors["cluster"] != -1].copy() #Separa os vetores que de fato vamos utilizar.
     disable_vectors = vectors[vectors["cluster"] == -1].copy() #Separa os vetores que não passaram pela verificação do K-Means
                                                                #ou seja, foram "excluidos".
@@ -259,41 +260,71 @@ def RandomTree(vectors):
         x = enable_vectors[clustersColumns]; y = enable_vectors[treeColumn]
         tree.fit(x,y)
         enable_vectors["classifierLabel"] = tree.predict(x)
+        m = Ensemble(allVectors,enable_vectors)
+
+        allVectors = m["all_vectors"]; enable_vectors = m["vectors"]
 
     if len(disable_vectors) > 0:
         disable_vectors["classifierLabel"] = disable_vectors["clusterLabel"]
+        disable_vectors["ensemble"] = disable_vectors["clusterLabel"]
         vectors = pd.concat([enable_vectors,disable_vectors],ignore_index=True)
 
     if month_enable != True: print("Vetor Complet:"); print(vectors)
-    return vectors
+
+    r = {"all_vectors" : allVectors, "vectors": vectors}
+    return r
+
+def Ensemble(allVectors,vectors):
+
+    allVectors.append(vectors)
+    training = pd.concat(allVectors,ignore_index=True)
+
+    x = training[clustersColumns]
+    y = training["classifierLabel"]
+
+
+    randomFlorest = RandomForestClassifier(random_state=42)
+    decisionTree = DecisionTreeClassifier(random_state=42)
+    logisticRegression = LogisticRegression()
+
+    model = VotingClassifier(estimators=[("randomFlorest",randomFlorest),
+                                         ("decisionTree",decisionTree),
+                                         ("logisticRegression",logisticRegression)],voting="hard")
+
+    model.fit(x,y)
+
+    vectors["ensemble"] = model.predict(vectors[clustersColumns])
+
+    m = { "all_vectors": allVectors, "vectors": vectors }
+    return m
 
 def TreeStep(players_vectors,players_all,champions_all,functions_all):
     vector_escolhas = players_vectors["escolha"]
     vector_wins = players_vectors["win"]
 
     all_tags = np.concatenate((champions_all,functions_all))
-
-    first = True
-    models_escolhas:pd.DataFrame = None; models_wins:pd.DataFrame = None
+    models_escolhas = []; models_wins = []
     i = 0; startTime = datetime.datetime.now()
     for tag in all_tags:
-        i+= 1
+        i+= 1; allVectors_escolha = []; allVectors_win = []
         tagVector_escolhas = vector_escolhas[vector_escolhas["Champion/Function"] == tag]
         tagVector_wins = vector_wins[vector_wins["Champion/Function"] == tag]
-        years = tagVector_escolhas["Year"].unique()
+        years = sorted(tagVector_escolhas["Year"].unique())
         for year in years:
             yearVector_escolhas = tagVector_escolhas[tagVector_escolhas["Year"] == year]
             yearVector_wins = tagVector_wins[tagVector_wins["Year"] == year]
-            months = yearVector_escolhas["Month"].unique()
+            months = sorted(yearVector_escolhas["Month"].unique())
             for month in months:
                 monthVector_escolhas = yearVector_escolhas[yearVector_escolhas["Month"] == month]
                 monthVector_wins = yearVector_wins[yearVector_wins["Month"] == month]
 
-                if first: models_escolhas = RandomTree(monthVector_escolhas); models_wins = RandomTree(monthVector_wins); first = False
-                
-                models_escolhas = pd.concat([models_escolhas,RandomTree(monthVector_escolhas)],ignore_index=True)
-                models_wins = pd.concat([models_wins,RandomTree(monthVector_wins)],ignore_index=True)
+                m1 = RandomTree(allVectors_escolha,monthVector_escolhas); m2 = RandomTree(allVectors_win,monthVector_wins)
+                allVectors_escolha = m1["all_vectors"]; allVectors_win = m2["all_vectors"]
+                models_escolhas.append(m1["vectors"]); models_wins.append(m2["vectors"])
         ProgressBar("Making Random Florest is in ",i,len(all_tags),startTime=startTime,end=True)
+
+    models_escolhas = pd.concat(models_escolhas,ignore_index=True)
+    models_wins = pd.concat(models_wins,ignore_index=True)
 
     results = {
         "escolha" : models_escolhas,
@@ -312,19 +343,26 @@ print("==============================================================")
 print("Start Second Step.")
 i = 0; startTime = datetime.datetime.now()
 for player in players_all:
-    #CreateVectorsForPlayers(player)
-    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True) #00:08:46 ~ 00:14:59
+    CreateVectorsForPlayers(player) #00:08:46 ~ 00:14:59
+    i+= 1; ProgressBar("Analysis in ",i,len(players_all),startTime=startTime,end=True)
 
-#players_vectors = GetVectorForAllPlayers(players_all) #00:06:17 ~ 00:08:03
+players_vectors = GetVectorForAllPlayers(players_all) #00:06:17 ~ 00:08:03
 players_vectors = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
 players_vectors["escolha"] = players_vectors["escolha"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
 players_vectors["win"] = players_vectors["win"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta"]]
 
-#player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all) #00:00:33 ~ 00:01:24
+player_models = ClusterStep(players_vectors,players_all,champions_all,functions_all) #00:00:33 ~ 00:01:24
 player_models = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
 player_models["escolha"] = player_models["escolha"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel"]]
 player_models["win"] = player_models["win"][["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel"]]
 
-player_tree = TreeStep(player_models,players_all,champions_all,functions_all)
+player_tree = TreeStep(player_models,players_all,champions_all,functions_all) #00:16:06 ~ 00:19:17
+#player_tree = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
+#player_tree["escolha"] = player_tree["escolha"][
+#    ["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel","classifierLabel"]]
+#player_tree["win"] = player_tree["win"][
+#    ["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel","classifierLabel"]]
+
+#player_commitment = PlayersCommitment(player_models,players_all,champions_all,functions_all)
 
 print("==============================================================")

@@ -27,7 +27,7 @@ filtredData = pd.read_csv(dataBasePath+dataBaseFiltred)
 filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimestampToDate"])
 
 updateCount = 0
-taxaForDay = True
+taxaForDay = False
 
 column_tag = {
     "player" : "summonerName",
