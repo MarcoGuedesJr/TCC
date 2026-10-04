@@ -5,6 +5,7 @@ import pandas as pd
 import calendar
 from pathlib import Path
 from scipy.stats import shapiro
+from scipy.stats import pearsonr
 import numpy as np
 
 #contagem = df['categoria'].value_counts()
@@ -91,13 +92,22 @@ def GetAllPlayersBase(players):
     allPlayersBase = pd.concat(allPlayersBase,ignore_index=True)
     return allPlayersBase
 
+def MakeUnifiquedCsv(players):
+    unifiqued_csv = []; i = 0; startTime = datetime.datetime.now()
+    for player in players:
+        PlayerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
+        playerData = pd.read_csv(PlayerDirectory+"Player_Taxas.csv",encoding="utf-16")
+        unifiqued_csv.append(playerData)
+        i+= 1; ProgressBar("Making Unifiqued Taxa csv ",i,len(players_all),startTime=startTime,end=True)
+    unifiqued_csv = pd.concat(unifiqued_csv,ignore_index=True)
+    return unifiqued_csv
 
-def ShapiroWilk_ForEachPlayerStrategy(players):
+def ShapiroWilk_EachPlayerStrategy(base,players):
     #["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]
     AllPlayersResults = []; i = 0; startTime = datetime.datetime.now()
     for player in players:
         PlayerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
-        playerData = pd.read_csv(PlayerDirectory+"Player_Taxas.csv",encoding="utf-16")
+        playerData = base[base["Player"] == player]
         playerData = playerData[["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]]
         tags = playerData["Champion/Function"].unique(); regionCode = playerData["regionCode"].unique()
         playerAllResults = []; playerAllResultsForMonth = []
@@ -114,92 +124,222 @@ def ShapiroWilk_ForEachPlayerStrategy(players):
                     part_stat, part_p = shapiro(monthData["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(monthData["pick_rate"])
                     win_stat, win_p = shapiro(monthData["Wins"]); win_rate_stat, win_rate_p = shapiro(monthData["win_rate"])
 
-                    monthData["ShapiroStat_Parts"] = part_stat; monthData["ShapiroP_Parts"] = part_p
-                    monthData["ShapiroStat_Pick_Rate"] = pick_rate_stat; monthData["ShapiroP_Pick_Rate"] = pick_rate_p
-
-                    monthData["ShapiroStat_Wins"] = win_stat; monthData["ShapiroP_Wins"] = win_p
-                    monthData["ShapiroStat_Win_Rate"] = win_rate_stat; monthData["ShapiroP_Win_Rate"] = win_rate_p
-
                     playerAllResults.append(monthData)
                     playerAllResultsForMonth.append(pd.DataFrame({
                         "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function" : [tag], "Year": [year], "Month": [month],
-                        "ShapiroStat_Parts": monthData["ShapiroStat_Parts"].unique(),
-                        "ShapiroP_Parts" : monthData["ShapiroP_Parts"].unique(),
-                        "ShapiroStat_Pick_Rate": monthData["ShapiroStat_Pick_Rate"].unique(),
-                        "ShapiroP_Pick_Rate" : monthData["ShapiroP_Pick_Rate"].unique(),
-                        "ShapiroStat_Wins": monthData["ShapiroStat_Wins"].unique(),
-                        "ShapiroP_Wins" : monthData["ShapiroP_Wins"].unique(),
-                        "ShapiroStat_Win_Rate": monthData["ShapiroStat_Win_Rate"].unique(),
-                        "ShapiroP_Win_Rate" : monthData["ShapiroP_Win_Rate"].unique()
+                        "ShapiroStat_Parts": [round(part_stat,4)],
+                        "ShapiroP_Parts" : [round(part_p,4)],
+                        "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
+                        "ShapiroP_Pick_Rate" : [round(pick_rate_p,4)],
+                        "ShapiroStat_Wins": [round(win_stat,4)],
+                        "ShapiroP_Wins" : [round(win_p,4)],
+                        "ShapiroStat_Win_Rate": [round(win_rate_stat,4)],
+                        "ShapiroP_Win_Rate" : [round(win_rate_p,4)]
                     }))
         playerAllResults:pd.DataFrame = pd.concat(playerAllResults,ignore_index=True)
-        playerAllResults.to_csv(PlayerDirectory+"ShapiroWilk_ForEachPlayerStrategy.csv",encoding="utf-16")
+        playerAllResults.to_csv(PlayerDirectory+"ShapiroWilk_EachPlayerStrategy.csv",encoding="utf-16")
 
         playerAllResultsForMonth:pd.DataFrame = pd.concat(playerAllResultsForMonth,ignore_index=True)
         AllPlayersResults.append(playerAllResultsForMonth)
 
-        i+= 1; ProgressBar("Making Shapiro Test and Make csv ",i,len(players_all),startTime=startTime,end=True) #00:16:38
+        i+= 1; ProgressBar("Making ShapiroWilk_EachPlayerStrategy and Make csv ",i,len(players_all),startTime=startTime,end=True) #00:16:38
     startTime = datetime.datetime.now(); ProgressBar("Making all players Shapiro csv...",0,1,startTime=startTime)
-    AllPlayersResults:pd.DataFrame = pd.concat(AllPlayersResults,ignore_index=True)
-    AllPlayersResults.to_csv(dataBasePath+"ShapiroWilk_ForEachPlayerStrategy.csv",encoding="utf-16")
-    ProgressBar("All Players Shapiro csv Maked.",1,1,startTime=startTime,end=True) #00:00:010
+    result:pd.DataFrame = pd.concat(AllPlayersResults,ignore_index=True)
+    result = SetNormals(result)
+    result.to_csv(dataBasePath+"ShapiroWilk_EachPlayerStrategy.csv",encoding="utf-16",index=False)
+    ProgressBar("All ShapiroWilk_EachPlayerStrategy csv Maked",1,1,startTime=startTime,end=True) #00:00:010
     return
 
-def ShapiroWilk_ForAllPlayersStrategy(players):#Aqui vamos tirar o shapiro de todos os camps e func com relação a todos os jogadores.
-    #["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]
-    baseFiltred = filtredData
-    tags = filtredData["Champion/Function"].unique(); 
-    playerAllResults = []; playerAllResultsForMonth = []
-    i = 0; startTime = datetime.datetime.now()
-    for tag in tags:
-        AllPlayersResults = []; 
+def ShapiroWilk_EachPlayersAllStrategy(base,players):
+
+    allResultsArray = []; i = 0; startTime = datetime.datetime.now()
+    for player in players:
         PlayerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
-        playerData = pd.read_csv(PlayerDirectory+"Player_Taxas.csv",encoding="utf-16")
+        playerData = base[base["Player"] == player]
         playerData = playerData[["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]]
-        tagData = playerData[playerData["Champion/Function"] == tag]
-        regionCode = playerData["regionCode"].unique()
-        years = tagData["Year"].unique()
-        for player in players:
+        tags = playerData["Champion/Function"].unique(); regionCode = playerData["regionCode"].unique()
+        years = playerData["Year"].unique()
+        playerResultArray = []
+        for year in years:
+            yearData = playerData[playerData["Year"] == year]
+            months = yearData["Month"].unique()
+            for month in months:
+                monthData = yearData[yearData["Month"] == month]; tagNumber = len(monthData["Champion/Function"].unique())
+                
+                part_stat, part_p = shapiro(monthData["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(monthData["pick_rate"])
+                win_stat, win_p = shapiro(monthData["Wins"]); win_rate_stat, win_rate_p = shapiro(monthData["win_rate"])
+
+                playerResultArray.append(pd.DataFrame({
+                    "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function Number" : [tagNumber], "Year": [year], "Month": [month],
+                    "ShapiroStat_Parts": [round(part_stat,4)],
+                    "ShapiroP_Parts" : [round(part_p,4)],
+                    "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
+                    "ShapiroP_Pick_Rate" : [round(pick_rate_p,4)],
+                    "ShapiroStat_Wins": [round(win_stat,4)],
+                    "ShapiroP_Wins" : [round(win_p,4)],
+                    "ShapiroStat_Win_Rate": [round(win_rate_stat,4)],
+                    "ShapiroP_Win_Rate" : [round(win_rate_p,4)]
+                }))
+        PlayerResult = pd.concat(playerResultArray,ignore_index=True); allResultsArray.append(PlayerResult)
+        i+= 1; ProgressBar("Making ShapiroWilk_EachPlayersAllStrategy and Make csv ",i,len(players_all),startTime=startTime,end=True)
+    result = pd.concat(allResultsArray,ignore_index=True)
+    result = SetNormals(result)
+    result.to_csv(dataBasePath+"ShapiroWilk_EachPlayersAllStrategy.csv",encoding="utf-16",index=False)    
+    return
+
+def ShapiroWilk_AllPlayersStrategy(base):#Aqui vamos tirar o shapiro de todos os camps e func com relação a todos os jogadores.
+    #["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]
+    tags = base["Champion/Function"].unique()
+    allResults = []; i = 0; startTime = datetime.datetime.now()
+    for tag in tags:
+        tagAllResults = []
+        tagBase = base[base["Champion/Function"] == tag]
+        years = tagBase["Year"].unique()
+        for year in years:
+            yearBase = tagBase[tagBase["Year"] == year]
+            months = yearBase["Month"].unique()
+            for month in months:
+                monthBase = yearBase[yearBase["Month"] == month]
+                player_number = len(monthBase["Player"].unique())
+                part_stat, part_p = shapiro(monthBase["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(monthBase["pick_rate"])
+                win_stat, win_p = shapiro(monthBase["Wins"]); win_rate_stat, win_rate_p = shapiro(monthBase["win_rate"])
+
+                tagAllResults.append(pd.DataFrame({
+                        "Champion/Function" : [tag], "Year": [year], "Month": [month], "PlayerNumber": [player_number],
+                        "ShapiroStat_Parts": [round(part_stat,4)],
+                        "ShapiroP_Parts" : [round(part_p,4)],
+                        "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
+                        "ShapiroP_Pick_Rate" : [round(pick_rate_p,4)],
+                        "ShapiroStat_Wins": [round(win_stat,4)],
+                        "ShapiroP_Wins" : [round(win_p,4)],
+                        "ShapiroStat_Win_Rate": [round(win_rate_stat,4)],
+                        "ShapiroP_Win_Rate" : [round(win_rate_p,4)]
+                    }))
+        tagResult = pd.concat(tagAllResults,ignore_index=True); allResults.append(tagResult)
+        i+= 1; ProgressBar("Making ShapiroWilk_AllPlayersStrategy and Make csv ",i,len(tags),startTime=startTime,end=True)
+    result:pd.DataFrame = pd.concat(allResults,ignore_index=True)
+    result = SetNormals(result)
+    result.to_csv(dataBasePath+"ShapiroWilk_AllPlayersStrategy.csv",encoding="utf-16",index=False)        
+    return
+
+def SetNormals(base:pd.DataFrame):
+    base["normal_parts"] = np.where(base["ShapiroP_Parts"] > 0.05,True,False)
+    base["normal_pickRate"] =  np.where(base["ShapiroP_Pick_Rate"] > 0.05,True,False)
+    base["normal_wins"] = np.where(base["ShapiroP_Wins"] > 0.05,True,False)
+    base["normal_winRate"] = np.where(base["ShapiroP_Win_Rate"] > 0.05,True,False)
+    return base
+
+def MakeSpearmanEachPlayerStrategy(base:pd.DataFrame,players):
+    allPlayersResults = []; i = 0; startTime = datetime.datetime.now()
+    for player in players:
+        allTagsResults = []
+        PlayerDirectory = directory+"TaxasDosJogadores\\"+player+"\\"
+        playerData = base[base["Player"] == player]
+        tags = playerData["Champion/Function"].unique(); regionCode = playerData["regionCode"].unique()
+        for tag in tags:
+            allMonthResults = []
+            tagData = playerData[playerData["Champion/Function"] == tag]
+            years = tagData["Year"].unique()
             for year in years:
                 yearData = tagData[tagData["Year"] == year]
                 months = yearData["Month"].unique()
                 for month in months:
                     monthData = yearData[yearData["Month"] == month]
-                    weeks = monthData["Week"].unique(); week_count = len(weeks)
-
-                    part_stat, part_p = shapiro(monthData["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(monthData["pick_rate"])
-                    win_stat, win_p = shapiro(monthData["Wins"]); win_rate_stat, win_rate_p = shapiro(monthData["win_rate"])
-
-                    monthData["ShapiroStat_Parts"] = part_stat; monthData["ShapiroP_Parts"] = part_p
-                    monthData["ShapiroStat_Pick_Rate"] = pick_rate_stat; monthData["ShapiroP_Pick_Rate"] = pick_rate_p
-
-                    monthData["ShapiroStat_Wins"] = win_stat; monthData["ShapiroP_Wins"] = win_p
-                    monthData["ShapiroStat_Win_Rate"] = win_rate_stat; monthData["ShapiroP_Win_Rate"] = win_rate_p
-
-                    playerAllResults.append(monthData)
-                    playerAllResultsForMonth.append(pd.DataFrame({
-                        "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function" : [tag], "Year": [year], "Month": [month],
-                        "ShapiroStat_Parts": monthData["ShapiroStat_Parts"].unique(),
-                        "ShapiroP_Parts" : monthData["ShapiroP_Parts"].unique(),
-                        "ShapiroStat_Pick_Rate": monthData["ShapiroStat_Pick_Rate"].unique(),
-                        "ShapiroP_Pick_Rate" : monthData["ShapiroP_Pick_Rate"].unique(),
-                        "ShapiroStat_Wins": monthData["ShapiroStat_Wins"].unique(),
-                        "ShapiroP_Wins" : monthData["ShapiroP_Wins"].unique(),
-                        "ShapiroStat_Win_Rate": monthData["ShapiroStat_Win_Rate"].unique(),
-                        "ShapiroP_Win_Rate" : monthData["ShapiroP_Win_Rate"].unique()
+                    #SafeCorrelation(data,column1,column2,method="spearman"):
+                    pickRateForWinRate = round(SafeCorrelation(monthData,"pick_rate","win_rate"),4)
+                    pickRateForWin = round(SafeCorrelation(monthData,"pick_rate","Wins"),4)
+                    partsForWinRate = round(SafeCorrelation(monthData,"WeekParts","win_rate"),4)
+                    partsForWin = round(SafeCorrelation(monthData,"WeekParts","Wins"),4)
+                    allMonthResults.append(pd.DataFrame({
+                        "Player": [player], "regionCode": regionCode, "Champion/Function" : [tag], "Year": [year], "Month": [month],
+                        "PickRate/WinRate": [pickRateForWinRate],
+                        "PickRate/Win" : [pickRateForWin],
+                        "Parts/WinRate": [partsForWinRate],
+                        "Parts/Win" : [partsForWin],
                     }))
-        playerAllResults:pd.DataFrame = pd.concat(playerAllResults,ignore_index=True)
-        playerAllResults.to_csv(PlayerDirectory+"ShapiroWilk_ForAllPlayersStrategy.csv",encoding="utf-16")
-
-        playerAllResultsForMonth:pd.DataFrame = pd.concat(playerAllResultsForMonth,ignore_index=True)
-        AllPlayersResults.append(playerAllResultsForMonth)
-
-        i+= 1; ProgressBar("Making Shapiro Test and Make csv ",i,len(players_all),startTime=startTime,end=True) #00:16:38
-    startTime = datetime.datetime.now(); ProgressBar("Making all players Shapiro csv...",0,1,startTime=startTime)
-    AllPlayersResults:pd.DataFrame = pd.concat(AllPlayersResults,ignore_index=True)
-    AllPlayersResults.to_csv(dataBasePath+"ShapiroWilk_ForAllPlayersStrategy.csv",encoding="utf-16")
-    ProgressBar("All Players Shapiro csv Maked.",1,1,startTime=startTime,end=True) #00:00:010
+            allMonthResults = pd.concat(allMonthResults,ignore_index=True)
+            allTagsResults.append(allMonthResults)
+        allTagsResults = pd.concat(allTagsResults,ignore_index=True)
+        allTagsResults.to_csv(PlayerDirectory+"SpearmanEachPlayerStrategy.csv",encoding="utf-16",index=True)
+        allPlayersResults.append(allTagsResults)
+        i+= 1; ProgressBar("Making SpearmanEachPlayerStrategy.csv ",i,len(players_all),startTime=startTime,end=True)
+    allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
+    allPlayersResults.to_csv(dataBasePath+"SpearmanEachPlayerStrategy.csv",encoding="utf-16",index=False)
     return
+
+def MakeSpearmanEachPlayersAllStrategy(base:pd.DataFrame,players):
+    allPlayersResults = []; i = 0; startTime = datetime.datetime.now()
+    for player in players:
+        allMonthResults = []
+        playerData = base[base["Player"] == player]
+        years = playerData["Year"].unique(); regionCode = playerData["regionCode"].unique()
+        for year in years:
+            yearData = playerData[playerData["Year"] == year]
+            months = yearData["Month"].unique()
+            for month in months:
+                monthData = yearData[yearData["Month"] == month]
+                #SafeCorrelation(data,column1,column2,method="spearman"):
+                tagNumber = len(monthData["Champion/Function"].unique())
+                pickRateForWinRate = round(SafeCorrelation(monthData,"pick_rate","win_rate"),4)
+                pickRateForWin = round(SafeCorrelation(monthData,"pick_rate","Wins"),4)
+                partsForWinRate = round(SafeCorrelation(monthData,"WeekParts","win_rate"),4)
+                partsForWin = round(SafeCorrelation(monthData,"WeekParts","Wins"),4)
+                allMonthResults.append(pd.DataFrame({
+                    "Player": [player], "regionCode": regionCode, "Champion/Function Numb" : [tagNumber], "Year": [year], "Month": [month],
+                    "PickRate/WinRate": [pickRateForWinRate],
+                    "PickRate/Win" : [pickRateForWin],
+                    "Parts/WinRate": [partsForWinRate],
+                    "Parts/Win" : [partsForWin],
+                }))
+        allMonthResults = pd.concat(allMonthResults,ignore_index=True)
+        allPlayersResults.append(allMonthResults)
+        i+= 1; ProgressBar("Making SpearmanEachPlayersAllStrategy.csv ",i,len(players_all),startTime=startTime,end=True)
+    allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
+    allPlayersResults.to_csv(dataBasePath+"SpearmanEachPlayersAllStrategy.csv",encoding="utf-16",index=False)
+    return
+
+def MakeSpearmanAllPlayersStrategy(base:pd.DataFrame):
+    allPlayersResults = []; i = 0; startTime = datetime.datetime.now()
+    tags = base["Champion/Function"].unique()
+    for tag in tags:
+        allMonthResults = []
+        tagData = base[base["Champion/Function"] == tag]
+        years = tagData["Year"].unique(); regionCode = tagData["regionCode"].unique()
+        for year in years:
+            yearData = tagData[tagData["Year"] == year]
+            months = yearData["Month"].unique()
+            for month in months:
+                monthData = yearData[yearData["Month"] == month]
+                #SafeCorrelation(data,column1,column2,method="spearman"):
+                player_number = len(monthData["Player"].unique())
+                pickRateForWinRate = round(SafeCorrelation(monthData,"pick_rate","win_rate"),4)
+                pickRateForWin = round(SafeCorrelation(monthData,"pick_rate","Wins"),4)
+                partsForWinRate = round(SafeCorrelation(monthData,"WeekParts","win_rate"),4)
+                partsForWin = round(SafeCorrelation(monthData,"WeekParts","Wins"),4)
+                allMonthResults.append(pd.DataFrame({
+                    "Champion/Function" : [tag], "Year": [year], "Month": [month], "PlayerNumber" : [player_number],
+                    "PickRate/WinRate": [pickRateForWinRate],
+                    "PickRate/Win" : [pickRateForWin],
+                    "Parts/WinRate": [partsForWinRate],
+                    "Parts/Win" : [partsForWin],
+                }))
+        allMonthResults = pd.concat(allMonthResults,ignore_index=True)
+        allPlayersResults.append(allMonthResults)
+        i+= 1; ProgressBar("Making SpearmanAllPlayersStrategy csv ",i,len(tags),startTime=startTime,end=True)
+    allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
+    allPlayersResults.to_csv(dataBasePath+"SpearmanAllPlayersStrategy.csv",encoding="utf-16",index=False)
+    return
+
+def SafeCorrelation(data,column1,column2,method="spearman"):
+    valid_data = data[[column1, column2]].dropna()
+
+    if len(valid_data) < 2:
+        return float("nan")
+
+    if (valid_data[column1].nunique() < 2 or valid_data[column2].nunique() < 2):
+        return float("nan")
+    
+    return data[column1].corr(data[column2],method=method)
 
 players_all = filtredData[column_tag["playerIdentifier"]].unique()
 champions_all = filtredData[column_tag["champion"]].unique()
@@ -210,13 +350,26 @@ print("==============================================================")
 print("Start Second Step.")
 
 #players_base = GetAllPlayersBase(players_all)
+unifiqued_csv = unifiqued_csv = MakeUnifiquedCsv(players_all) #00:02:24
 
-step_shapiro1 = True
+step_shapiro1 = False
 if step_shapiro1:
-    ShapiroWilk_ForEachPlayerStrategy(players_all)
-
-step_shapiro2 = True
+    shap1 = ShapiroWilk_EachPlayerStrategy(unifiqued_csv,players_all) #00:19:38
+step_shapiro2 = False
 if step_shapiro2:
-    ShapiroWilk_ForAllPlayersStrategy(players_all)
+    shap2 = ShapiroWilk_EachPlayersAllStrategy(unifiqued_csv,players_all) #00:08:06 ~ 00:08:26
+step_shapiro3 = False
+if step_shapiro3:
+    shap3 = ShapiroWilk_AllPlayersStrategy(unifiqued_csv) #00:00:08
+
+step_MakeSpearman1 = True
+if step_MakeSpearman1:
+    MakeSpearmanEachPlayerStrategy(unifiqued_csv,players_all) #00:16:31 ~ 00:20:05
+step_MakeSpearman2 = True
+if step_MakeSpearman2:
+    MakeSpearmanEachPlayersAllStrategy(unifiqued_csv,players_all) #00:08:20 ~ 00:08:26
+step_MakeSpearman3 = True
+if step_MakeSpearman3:
+    MakeSpearmanAllPlayersStrategy(unifiqued_csv) #00:00:11
 
 print("==============================================================")
