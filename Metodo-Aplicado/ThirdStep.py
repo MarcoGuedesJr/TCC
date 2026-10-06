@@ -25,6 +25,7 @@ import numpy as np
 
 directory = "C:\\Users\\marco\\Documents\\TCC\\Metodo-Aplicado\\"
 dataBasePath = directory+"\\DataBase\\"
+stepBasePath = dataBasePath+"3º Step\\"
 
 dataBaseFiltred = "LOL_2023_Filtred.csv"
 filtredData = pd.read_csv(dataBasePath+dataBaseFiltred)
@@ -138,9 +139,9 @@ def GetVectorForAllPlayers(players):
     all_vector = { "escolha" : None, "win" : None}
     i = 0; startTime = datetime.datetime.now()
 
-    CreateCSV(os.path.join(dataBasePath,"Players_Vector_Escolha.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
-    CreateCSV(os.path.join(dataBasePath,"Players_Vector_WinTaxa.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
-    CreateCSV(os.path.join(dataBasePath,"Players_Vector_WinValue.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
+    CreateCSV(os.path.join(stepBasePath,"Players_Vector_Escolha.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
+    CreateCSV(os.path.join(stepBasePath,"Players_Vector_WinTaxa.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
+    CreateCSV(os.path.join(stepBasePath,"Players_Vector_WinValue.csv"),["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"])
 
     for player in players:
         i += 1
@@ -159,9 +160,9 @@ def GetVectorForAllPlayers(players):
 
         ProgressBar("Making unifiqued vectors csv ",i,len(players_all),startTime=startTime,end=True)
 
-    all_vector["escolha"].to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
-    all_vector["winTaxa"].to_csv(dataBasePath+"Players_Vector_WinTaxa.csv", index=False)
-    all_vector["winValue"].to_csv(dataBasePath+"Players_Vector_WinValue.csv", index=False)
+    all_vector["escolha"].to_csv(stepBasePath+"Players_Vector_Escolha.csv", index=False)
+    all_vector["winTaxa"].to_csv(stepBasePath+"Players_Vector_WinTaxa.csv", index=False)
+    all_vector["winValue"].to_csv(stepBasePath+"Players_Vector_WinValue.csv", index=False)
 
     return all_vector
 
@@ -249,9 +250,9 @@ def ClusterStep(players_vectors,players_all,champions_all,functions_all):
         "winTaxas" : models_winsTaxa,
         "winValue" : models_winsValue
     }
-    models_escolhas.to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
-    models_winsTaxa.to_csv(dataBasePath+"Players_Vector_WinTaxa.csv", index=False)
-    models_winsValue.to_csv(dataBasePath+"Players_Vector_WinValue.csv", index=False)
+    models_escolhas.to_csv(stepBasePath+"Players_Vector_Escolha.csv", index=False)
+    models_winsTaxa.to_csv(stepBasePath+"Players_Vector_WinTaxa.csv", index=False)
+    models_winsValue.to_csv(stepBasePath+"Players_Vector_WinValue.csv", index=False)
     return results
 
 def RandomTree(allVectors,vectors):
@@ -367,9 +368,9 @@ def TreeStep(players_vectors,players_all,champions_all,functions_all):
         "winTaxas" : models_winTaxa,
         "winValue" : models_winValue
     }
-    models_escolhas.to_csv(dataBasePath+"Players_Vector_Escolha.csv", index=False)
-    models_winTaxa.to_csv(dataBasePath+"Players_Vector_WinTaxa.csv", index=False)
-    models_winValue.to_csv(dataBasePath+"Players_Vector_WinValue.csv", index=False)
+    models_escolhas.to_csv(stepBasePath+"Players_Vector_Escolha.csv",index=False)
+    models_winTaxa.to_csv(stepBasePath+"Players_Vector_WinTaxa.csv",index=False)
+    models_winValue.to_csv(stepBasePath+"Players_Vector_WinValue.csv",index=False)
     return results
 
 players_all = filtredData[column_tag["playerIdentifier"]].unique()
@@ -380,6 +381,7 @@ print("==============================================================")
 
 print("Start Second Step.")
 i = 0; startTime = datetime.datetime.now()
+os.makedirs(dataBasePath+"3º Step", exist_ok=True)
 
 step_mak_vectors = True
 if step_mak_vectors:
@@ -394,9 +396,9 @@ if step_allVectors:
 step_cluster = True
 if step_cluster:
     players_vectors = { 
-        "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"),
-        "winTaxa" : pd.read_csv(dataBasePath+"Players_Vector_WinTaxa.csv"),
-        "winValue" : pd.read_csv(dataBasePath+"Players_Vector_WinValue.csv")}
+        "escolha" : pd.read_csv(stepBasePath+"Players_Vector_Escolha.csv"),
+        "winTaxa" : pd.read_csv(stepBasePath+"Players_Vector_WinTaxa.csv"),
+        "winValue" : pd.read_csv(stepBasePath+"Players_Vector_WinValue.csv")}
     players_vectors["escolha"] = players_vectors["escolha"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"]]
     players_vectors["winTaxa"] = players_vectors["winTaxa"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"]]
     players_vectors["winValue"] = players_vectors["winValue"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta"]]
@@ -406,9 +408,9 @@ if step_cluster:
 step_tree = True
 if step_tree:
     player_models = {
-        "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"),
-        "winTaxa" : pd.read_csv(dataBasePath+"Players_Vector_WinTaxa.csv"),
-        "winValue" : pd.read_csv(dataBasePath+"Players_Vector_WinValue.csv")}
+        "escolha" : pd.read_csv(stepBasePath+"Players_Vector_Escolha.csv"),
+        "winTaxa" : pd.read_csv(stepBasePath+"Players_Vector_WinTaxa.csv"),
+        "winValue" : pd.read_csv(stepBasePath+"Players_Vector_WinValue.csv")}
     player_models["escolha"] = player_models["escolha"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta","cluster","clusterLabel"]]
     player_models["winTaxa"] = player_models["winTaxa"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta","cluster","clusterLabel"]]
     player_models["winValue"] = player_models["winValue"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta","cluster","clusterLabel"]]

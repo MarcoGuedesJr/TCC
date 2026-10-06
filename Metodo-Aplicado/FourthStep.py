@@ -22,6 +22,7 @@ import numpy as np
 
 directory = "C:\\Users\\marco\\Documents\\TCC\\Metodo-Aplicado\\"
 dataBasePath = directory+"\\DataBase\\"
+stepBasePath = dataBasePath+"4º Step\\"
 
 dataBaseFiltred = "LOL_2023_Filtred.csv"
 filtredData = pd.read_csv(dataBasePath+dataBaseFiltred)
@@ -146,7 +147,7 @@ def ShapiroWilk_EachPlayerStrategy(base,players):
     startTime = datetime.datetime.now(); ProgressBar("Making all players Shapiro csv...",0,1,startTime=startTime)
     result:pd.DataFrame = pd.concat(AllPlayersResults,ignore_index=True)
     result = SetNormals(result)
-    result.to_csv(dataBasePath+"ShapiroWilk_EachPlayerStrategy.csv",encoding="utf-16",index=False)
+    result.to_csv(stepBasePath+"ShapiroWilk_EachPlayerStrategy.csv",encoding="utf-16",index=False)
     ProgressBar("All ShapiroWilk_EachPlayerStrategy csv Maked",1,1,startTime=startTime,end=True) #00:00:010
     return
 
@@ -184,7 +185,7 @@ def ShapiroWilk_EachPlayersAllStrategy(base,players):
         i+= 1; ProgressBar("Making ShapiroWilk_EachPlayersAllStrategy and Make csv ",i,len(players_all),startTime=startTime,end=True)
     result = pd.concat(allResultsArray,ignore_index=True)
     result = SetNormals(result)
-    result.to_csv(dataBasePath+"ShapiroWilk_EachPlayersAllStrategy.csv",encoding="utf-16",index=False)    
+    result.to_csv(stepBasePath+"ShapiroWilk_EachPlayersAllStrategy.csv",encoding="utf-16",index=False)    
     return
 
 def ShapiroWilk_AllPlayersStrategy(base):#Aqui vamos tirar o shapiro de todos os camps e func com relação a todos os jogadores.
@@ -219,7 +220,7 @@ def ShapiroWilk_AllPlayersStrategy(base):#Aqui vamos tirar o shapiro de todos os
         i+= 1; ProgressBar("Making ShapiroWilk_AllPlayersStrategy and Make csv ",i,len(tags),startTime=startTime,end=True)
     result:pd.DataFrame = pd.concat(allResults,ignore_index=True)
     result = SetNormals(result)
-    result.to_csv(dataBasePath+"ShapiroWilk_AllPlayersStrategy.csv",encoding="utf-16",index=False)        
+    result.to_csv(stepBasePath+"ShapiroWilk_AllPlayersStrategy.csv",encoding="utf-16",index=False)        
     return
 
 def SetNormals(base:pd.DataFrame):
@@ -264,7 +265,7 @@ def MakeSpearmanEachPlayerStrategy(base:pd.DataFrame,players):
         allPlayersResults.append(allTagsResults)
         i+= 1; ProgressBar("Making SpearmanEachPlayerStrategy.csv ",i,len(players_all),startTime=startTime,end=True)
     allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
-    allPlayersResults.to_csv(dataBasePath+"SpearmanEachPlayerStrategy.csv",encoding="utf-16",index=False)
+    allPlayersResults.to_csv(stepBasePath+"SpearmanEachPlayerStrategy.csv",encoding="utf-16",index=False)
     return
 
 def MakeSpearmanEachPlayersAllStrategy(base:pd.DataFrame,players):
@@ -295,7 +296,7 @@ def MakeSpearmanEachPlayersAllStrategy(base:pd.DataFrame,players):
         allPlayersResults.append(allMonthResults)
         i+= 1; ProgressBar("Making SpearmanEachPlayersAllStrategy.csv ",i,len(players_all),startTime=startTime,end=True)
     allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
-    allPlayersResults.to_csv(dataBasePath+"SpearmanEachPlayersAllStrategy.csv",encoding="utf-16",index=False)
+    allPlayersResults.to_csv(stepBasePath+"SpearmanEachPlayersAllStrategy.csv",encoding="utf-16",index=False)
     return
 
 def MakeSpearmanAllPlayersStrategy(base:pd.DataFrame):
@@ -327,7 +328,7 @@ def MakeSpearmanAllPlayersStrategy(base:pd.DataFrame):
         allPlayersResults.append(allMonthResults)
         i+= 1; ProgressBar("Making SpearmanAllPlayersStrategy csv ",i,len(tags),startTime=startTime,end=True)
     allPlayersResults = pd.concat(allPlayersResults,ignore_index=True)
-    allPlayersResults.to_csv(dataBasePath+"SpearmanAllPlayersStrategy.csv",encoding="utf-16",index=False)
+    allPlayersResults.to_csv(stepBasePath+"SpearmanAllPlayersStrategy.csv",encoding="utf-16",index=False)
     return
 
 def SafeCorrelation(data,column1,column2,method="spearman"):
@@ -351,14 +352,14 @@ print("Start Second Step.")
 
 #players_base = GetAllPlayersBase(players_all)
 unifiqued_csv = unifiqued_csv = MakeUnifiquedCsv(players_all) #00:02:24
-
-step_shapiro1 = False
+os.makedirs(dataBasePath+"4º Step", exist_ok=True)
+step_shapiro1 = True
 if step_shapiro1:
     shap1 = ShapiroWilk_EachPlayerStrategy(unifiqued_csv,players_all) #00:19:38
-step_shapiro2 = False
+step_shapiro2 = True
 if step_shapiro2:
     shap2 = ShapiroWilk_EachPlayersAllStrategy(unifiqued_csv,players_all) #00:08:06 ~ 00:08:26
-step_shapiro3 = False
+step_shapiro3 = True
 if step_shapiro3:
     shap3 = ShapiroWilk_AllPlayersStrategy(unifiqued_csv) #00:00:08
 
