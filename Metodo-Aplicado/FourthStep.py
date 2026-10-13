@@ -41,6 +41,8 @@ column_tag = {
 clustersColumns = ["parts","rate_min","rate_max","rate_delta"]
 treeColumn = "clusterLabel"
 
+functions = ["TOP","JUNGLE","MIDDLE","BOTTOM","UTILITY"]
+
 def MakeTimePassString(startTime,endTime):
     time = endTime-startTime; seconds = int(time.total_seconds())
     hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
@@ -166,27 +168,37 @@ def ShapiroWilk_EachPlayersAllStrategy(base,players):
             months = yearData["Month"].unique()
             for month in months:
                 monthData = yearData[yearData["Month"] == month]; tagNumber = len(monthData["Champion/Function"].unique())
-                
-                part_stat, part_p = shapiro(monthData["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(monthData["pick_rate"])
-                win_stat, win_p = shapiro(monthData["Wins"]); win_rate_stat, win_rate_p = shapiro(monthData["win_rate"])
+                base_functions = monthData[monthData["Champion/Function"].isin(functions)].copy()
+                base_champions = monthData[~monthData["Champion/Function"].isin(functions)].copy()
 
-                playerResultArray.append(pd.DataFrame({
-                    "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function Number" : [tagNumber], "Year": [year], "Month": [month],
-                    "ShapiroStat_Parts": [round(part_stat,4)],
-                    "ShapiroP_Parts" : [round(part_p,4)],
-                    "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
-                    "ShapiroP_Pick_Rate" : [round(pick_rate_p,4)],
-                    "ShapiroStat_Wins": [round(win_stat,4)],
-                    "ShapiroP_Wins" : [round(win_p,4)],
-                    "ShapiroStat_Win_Rate": [round(win_rate_stat,4)],
-                    "ShapiroP_Win_Rate" : [round(win_rate_p,4)]
-                }))
+                playerResultArray.append(MakeSafeShapiro(player,regionCode,year,month,base_functions))
+                playerResultArray.append(MakeSafeShapiro(player,regionCode,year,month,base_champions))
+
         PlayerResult = pd.concat(playerResultArray,ignore_index=True); allResultsArray.append(PlayerResult)
         i+= 1; ProgressBar("Making ShapiroWilk_EachPlayersAllStrategy and Make csv ",i,len(players_all),startTime=startTime,end=True)
     result = pd.concat(allResultsArray,ignore_index=True)
     result = SetNormals(result)
     result.to_csv(stepBasePath+"ShapiroWilk_EachPlayersAllStrategy.csv",encoding="utf-16",index=False)    
     return
+
+def MakeSafeShapiro(player,regionCode,year,month,base):
+    tagNumber = len(base["Champion/Function"].unique())
+    
+    part_stat, part_p = shapiro(base["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(base["pick_rate"])
+    win_stat, win_p = shapiro(base["Wins"]); win_rate_stat, win_rate_p = shapiro(base["win_rate"])
+
+    frame = pd.DataFrame({
+        "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function Number" : [tagNumber], "Year": [year], "Month": [month],
+        "ShapiroStat_Parts": [round(part_stat,4)],
+        "ShapiroP_Parts" : [round(part_p,4)],
+        "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
+        "ShapiroP_Pick_Rate" : [round(pick_rate_p,4)],
+        "ShapiroStat_Wins": [round(win_stat,4)],
+        "ShapiroP_Wins" : [round(win_p,4)],
+        "ShapiroStat_Win_Rate": [round(win_rate_stat,4)],
+        "ShapiroP_Win_Rate" : [round(win_rate_p,4)]
+    })
+    return frame
 
 def ShapiroWilk_AllPlayersStrategy(base):#Aqui vamos tirar o shapiro de todos os camps e func com relação a todos os jogadores.
     #["Player",column_tag["regionCode"],"Champion/Function","Year","Month","Week","WeekParts","pick_rate","Wins","win_rate"]
@@ -279,19 +291,12 @@ def MakeSpearmanEachPlayersAllStrategy(base:pd.DataFrame,players):
             months = yearData["Month"].unique()
             for month in months:
                 monthData = yearData[yearData["Month"] == month]
-                #SafeCorrelation(data,column1,column2,method="spearman"):
-                tagNumber = len(monthData["Champion/Function"].unique())
-                pickRateForWinRate = round(SafeCorrelation(monthData,"pick_rate","win_rate"),4)
-                pickRateForWin = round(SafeCorrelation(monthData,"pick_rate","Wins"),4)
-                partsForWinRate = round(SafeCorrelation(monthData,"WeekParts","win_rate"),4)
-                partsForWin = round(SafeCorrelation(monthData,"WeekParts","Wins"),4)
-                allMonthResults.append(pd.DataFrame({
-                    "Player": [player], "regionCode": regionCode, "Champion/Function Numb" : [tagNumber], "Year": [year], "Month": [month],
-                    "PickRate/WinRate": [pickRateForWinRate],
-                    "PickRate/Win" : [pickRateForWin],
-                    "Parts/WinRate": [partsForWinRate],
-                    "Parts/Win" : [partsForWin],
-                }))
+                base_functions = monthData[monthData["Champion/Function"].isin(functions)].copy()
+                base_champions = monthData[~monthData["Champion/Function"].isin(functions)].copy()
+
+                allMonthResults.append(MakeSafeCorrelation(player,regionCode,year,month,base_functions))
+                allMonthResults.append(MakeSafeCorrelation(player,regionCode,year,month,base_champions))
+                
         allMonthResults = pd.concat(allMonthResults,ignore_index=True)
         allPlayersResults.append(allMonthResults)
         i+= 1; ProgressBar("Making SpearmanEachPlayersAllStrategy.csv ",i,len(players_all),startTime=startTime,end=True)
@@ -341,6 +346,22 @@ def SafeCorrelation(data,column1,column2,method="spearman"):
         return float("nan")
     
     return data[column1].corr(data[column2],method=method)
+
+def MakeSafeCorrelation(player,regionCode,year,month,base):
+    tagNumber = len(base["Champion/Function"].unique())
+    #SafeCorrelation(data,column1,column2,method="spearman"):
+    pickRateForWinRate = round(SafeCorrelation(base,"pick_rate","win_rate"),4)
+    pickRateForWin = round(SafeCorrelation(base,"pick_rate","Wins"),4)
+    partsForWinRate = round(SafeCorrelation(base,"WeekParts","win_rate"),4)
+    partsForWin = round(SafeCorrelation(base,"WeekParts","Wins"),4)
+    frame = pd.DataFrame({
+        "Player": [player], "regionCode": regionCode, "Champion/Function Numb" : [tagNumber], "Year": [year], "Month": [month],
+        "PickRate/WinRate": [pickRateForWinRate],
+        "PickRate/Win" : [pickRateForWin],
+        "Parts/WinRate": [partsForWinRate],
+        "Parts/Win" : [partsForWin],
+    })
+    return frame
 
 players_all = filtredData[column_tag["playerIdentifier"]].unique()
 champions_all = filtredData[column_tag["champion"]].unique()
