@@ -379,7 +379,7 @@ functions_all = filtredData[column_tag["function"]].unique()
 
 print("==============================================================")
 
-print("Start Second Step.")
+print("Start Third Step.")
 i = 0; startTime = datetime.datetime.now()
 os.makedirs(dataBasePath+"3º Step", exist_ok=True)
 
@@ -415,12 +415,5 @@ if step_tree:
     player_models["winTaxa"] = player_models["winTaxa"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta","cluster","clusterLabel"]]
     player_models["winValue"] = player_models["winValue"][["Player","Champion/Function","Year","Month","parts","score_min","score_max","score_delta","cluster","clusterLabel"]]
     player_tree = TreeStep(player_models,players_all,champions_all,functions_all) #00:16:06 ~ 00:19:17
-#player_tree = { "escolha" : pd.read_csv(dataBasePath+"Players_Vector_Escolha.csv"), "win" : pd.read_csv(dataBasePath+"Players_Vector_Win.csv")}
-#player_tree["escolha"] = player_tree["escolha"][
-#    ["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel","classifierLabel"]]
-#player_tree["win"] = player_tree["win"][
-#    ["Player","Champion/Function","Year","Month","parts","rate_min","rate_max","rate_delta","cluster","clusterLabel","classifierLabel"]]
-
-#player_commitment = PlayersCommitment(player_models,players_all,champions_all,functions_all)
 
 print("==============================================================")

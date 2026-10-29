@@ -2,6 +2,7 @@ import os
 import csv
 import datetime
 import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 textMode = False
@@ -217,7 +218,7 @@ def MakePlayerCommitmentGrafic():
 
                 plt.xlabel("Mês")
                 plt.ylabel("Comprometimento")
-                plt.title("Comprometimento Com A Estrategia por Mês.")
+                plt.title(f"Comprometimento Com A {strategy} por Mês.")
 
                 plt.yticks(range(len(label_order)), label_order)
                 plt.xticks(range(1, 13))
@@ -226,7 +227,7 @@ def MakePlayerCommitmentGrafic():
                 save_path = f"{playerPath}CommitmentForYears\\{str(year)}\\{strategy}_in_{year}.png"
                 plt.savefig(save_path, dpi=300, bbox_inches="tight")
                 plt.close()
-                ProgressBar("Making PlayerCommitmentGrafic, "+str(i)+" de len(players) : ",i,len(players),startTime=startTime,end=True)
+                ProgressBar("Making PlayerCommitmentGrafic, "+str(i)+" de "+len(players)+" : ",i,len(players),startTime=startTime,end=True)
         i+= 1; 
     return
 
@@ -245,6 +246,7 @@ def MakePlayerCommitmentGraficTwo():
     groupedPlayers = playersProfile.groupby("Player", sort=False)
 
     for player, playerProfile in groupedPlayers:
+        i += 1
         playerPath = playersPath + player + "\\"
         commitmentPath = playerPath + "CommitmentForYears\\"
 
@@ -282,7 +284,7 @@ def MakePlayerCommitmentGraficTwo():
 
                 ax.set_xlabel("Mês")
                 ax.set_ylabel("Comprometimento")
-                ax.set_title("Comprometimento Com A Estrategia por Mês.")
+                ax.set_title(f"Comprometimento Com A {strategy} por Mês.")
 
                 ax.set_yticks(label_positions, label_order)
                 ax.set_xticks(range(1, 13))
@@ -294,7 +296,6 @@ def MakePlayerCommitmentGraficTwo():
                 plt.close(fig)
 
         ProgressBar("Making PlayerCommitmentGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
-        i += 1
     return
 
 def ClassifyCorrelation(value):
@@ -306,12 +307,11 @@ def ClassifyCorrelation(value):
     
     force = abs(value)
 
-    if force < 0.1:
-        return "Neutro"
-
     if force < 0.3:
+        strength = "Desprezível"
+    elif force < 0.5:
         strength = "Fraca"
-    elif force < 0.6:
+    elif force < 0.7:
         strength = "Moderada"
     elif force < 0.9:
         strength = "Forte"
@@ -324,41 +324,50 @@ def ClassifyCorrelation(value):
         return f"Neg {strength}"
 
 def MakePlayerForceGrafic():
+    correlationColumn = "Fcr_PlayerTx"
+
     playersProfile = pd.read_csv(dataBasePath + "PlayersProfile.csv")
+    playersProfile["ForceLabel"] = playersProfile[correlationColumn].apply(ClassifyCorrelation)
+    playersProfile = playersProfile[playersProfile["ForceLabel"].notna()]
     players = playersProfile["Player"].unique()
 
-    label_order = ["Pos Muito Forte", "Pos Forte", "Pos Moderada", "Pos Fraca",
-                   "Neutro",
-                   "Neg Fraca", "Neg Moderada", "Neg Forte", "Neg Muito Forte"]
+    label_order = ["Neg Muito Forte", "Neg Forte", "Neg Moderada", "Neg Fraca", "Neg Desprezível",
+                   "Pos Desprezível", "Pos Fraca", "Pos Moderada", "Pos Forte", "Pos Muito Forte"]
     label_to_y = {label: i for i, label in enumerate(label_order)}
     label_positions = range(len(label_order))
 
     i = 0; startTime = datetime.datetime.now()
 
+    mensalPlayersForceCsv = []
+
     groupedPlayers = playersProfile.groupby("Player", sort=False)
 
     for player, playerProfile in groupedPlayers:
+        i += 1
         playerPath = playersPath + player + "\\"
         forcePath = playerPath + "ForceForYears\\"
 
-        os.makedirs(forcePath, exist_ok=True)
-
+        
         groupedYears = playerProfile.groupby("Year", sort=False)
-
-        correlationColumn = "i"
-        playersProfile["ForceLabel"] = playersProfile[correlationColumn].apply(ClassifyCorrelation)
+        mensalPlayersForceCsv.append(playerProfile[["Player","Year","Month",correlationColumn,"ForceLabel"]].drop_duplicates())
 
         for year, playerProfileYear in groupedYears:
-            yearPath = forcePath + str(year) + "\\"
-            os.makedirs(yearPath, exist_ok=True)
 
             if playerProfileYear["Month"].nunique() < 2:
+                ProgressBar("Making MakePlayerForceGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
                 continue
+
+            os.makedirs(forcePath, exist_ok=True)
+            yearPath = forcePath + str(year) + "\\"
+
+            os.makedirs(yearPath, exist_ok=True)
 
             playerProfileYear = playerProfileYear.sort_values("Month")
 
+            #print(playersProfile)
+
             x = playerProfileYear["Month"]
-            y = playerProfileYear["Commit"].map(label_to_y)
+            y = playerProfileYear["ForceLabel"].map(label_to_y)
 
             fig, ax = plt.subplots()
 
@@ -368,7 +377,7 @@ def MakePlayerForceGrafic():
 
             ax.set_xlabel("Mês")
             ax.set_ylabel("Força Da Relação")
-            ax.set_title("Adaptação Estrategica do Jogador Por Mês.")
+            ax.set_title("Tendencia Estrategica do Jogador por mês.")
 
             ax.set_yticks(label_positions, label_order)
             ax.set_xticks(range(1, 13))
@@ -379,8 +388,302 @@ def MakePlayerForceGrafic():
             fig.savefig(save_path,dpi=300,bbox_inches="tight")
             plt.close(fig)
 
-        ProgressBar("Making MakePlayerForceGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
+            ProgressBar("Making MakePlayerForceGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
+
+    mensalPlayersForceCsv = pd.concat(mensalPlayersForceCsv,ignore_index=True)
+    mensalPlayersForceCsv.to_csv(dataBasePath+"PlayersForceMonth.csv",index=False)
+    return
+
+def MakeStrategyForceGrafic():
+    correlationColumn = "Fcr_StrategyTx"
+
+    playersProfile = pd.read_csv(dataBasePath + "PlayersProfile.csv")
+    playersProfile["ForceLabel"] = playersProfile[correlationColumn].apply(ClassifyCorrelation)
+    playersProfile = playersProfile[playersProfile["ForceLabel"].notna()]
+    strategys = playersProfile["Strategy"].unique()
+
+    label_order = ["Neg Muito Forte", "Neg Forte", "Neg Moderada", "Neg Fraca", "Neg Desprezível",
+                       "Pos Desprezível", "Pos Fraca", "Pos Moderada", "Pos Forte", "Pos Muito Forte"]
+    label_to_y = {label: i for i, label in enumerate(label_order)}
+    label_positions = range(len(label_order))
+
+    i = 0; startTime = datetime.datetime.now()
+
+    groupedStrategy = playersProfile.groupby("Strategy", sort=False)
+
+    for strategy, strategyProfile in groupedStrategy:
         i += 1
+        forcePath = dataBasePath + "ForceForYears\\"
+        
+        groupedYears = strategyProfile.groupby("Year", sort=False)
+
+        for year, strategyProfileYear in groupedYears:
+
+            if strategyProfileYear["Month"].nunique() < 2:
+                ProgressBar("Making MakeStrategyForceGrafic, "+ str(i)+ " de "+ str(len(strategys))+ " : ",i,len(strategys),startTime=startTime,end=True)
+                continue
+
+            os.makedirs(forcePath, exist_ok=True)
+            yearPath = forcePath + str(year) + "\\"
+
+            os.makedirs(yearPath, exist_ok=True)
+
+            strategyProfileYear = strategyProfileYear.sort_values("Month")
+
+            x = strategyProfileYear["Month"]
+            y = strategyProfileYear["ForceLabel"].map(label_to_y)
+
+            fig, ax = plt.subplots()
+
+            ax.plot(x, y, linestyle="-", color="gray", alpha=0.7)
+
+            ax.scatter(x, y)
+
+            ax.set_xlabel("Mês")
+            ax.set_ylabel("Força Da Relação")
+            ax.set_title(f"Tendencia Estrategica dos Jogador de {strategy} por mês.")
+
+            ax.set_yticks(label_positions, label_order)
+            ax.set_xticks(range(1, 13))
+            ax.grid(axis="x", alpha=0.3)
+
+            save_path = (f"{yearPath}{strategy}Force_in_{year}.png")
+
+            fig.savefig(save_path,dpi=300,bbox_inches="tight")
+            plt.close(fig)
+
+            ProgressBar("Making MakeStrategyForceGrafic, "+ str(i)+ " de "+ str(len(strategys))+ " : ",i,len(strategys),startTime=startTime,end=True)
+    return
+
+def MakePlayerForceInMonthGrafic():
+    playersForce = pd.read_csv(dataBasePath+"PlayersForceMonth.csv")
+
+    forceLabels = [
+        "Neg Muito Forte",
+        "Neg Forte",
+        "Neg Moderada",
+        "Neg Fraca",
+        "Neg Desprezível",
+        "Pos Desprezível",
+        "Pos Fraca",
+        "Pos Moderada",
+        "Pos Forte",
+        "Pos Muito Forte"
+    ]
+
+    years = sorted(playersForce["Year"].dropna().unique())
+    os.makedirs(dataBasePath+"CorrelationForceForMonth")
+
+    for year in years:
+        yearData = playersForce[playersForce["Year"] == year]
+        months = sorted(yearData["Month"].dropna().unique())
+
+        for month in months:
+            monthData = yearData[yearData["Month"] == month]
+
+            force = {
+                label: (monthData["ForceLabel"] == label).sum()
+                for label in forceLabels
+            }
+
+            plt.figure(figsize=(14, 6))
+
+            plt.bar(force.keys(), force.values())
+
+            plt.title(f"Quantidade de jogadores por categoria - {month}/{year}")
+            plt.xlabel("Força Da Correlação")
+            plt.ylabel("Número de jogadores")
+            plt.xticks(rotation=45, ha="right")
+
+            plt.tight_layout()
+
+            outputPath = dataBasePath+f"CorrelationForceForMonth\\ForceMonth_{year}_{month}.png"
+            plt.savefig(outputPath, dpi=300, bbox_inches="tight")
+            plt.close()
+    return
+
+def MakePlayersForceInMonthViolineGrafic():
+    playersProfile = pd.read_csv(dataBasePath+"PlayersProfile.csv")
+
+    years = sorted(playersProfile["Year"].dropna().unique())
+    startTime = datetime.datetime.now()
+
+    for i, year in enumerate(years):
+        yearData = playersProfile[playersProfile["Year"] == year].copy()
+
+        yearData = yearData.dropna(subset=["Month", "Fcr_PlayerTx"])
+        monthNumber = yearData["Month"].unique()
+
+        if yearData.empty:
+            continue
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        sns.violinplot(
+            data=yearData,
+            x="Month",
+            y="Fcr_PlayerTx",
+            order=range(1, len(monthNumber)+1),
+            inner="quartile",
+            cut=0,
+            ax=ax
+        )
+
+        ax.axhline(0, linestyle="--", linewidth=1)
+
+        ax.set_title(f"Distribuição da Força da Correlação dos Jogadores - {year}")
+
+        ax.set_xlabel("Mês")
+        ax.set_ylabel("Força da correlação")
+        ax.set_ylim(-1, 1)
+
+        outputPath = (f"{dataBasePath}BoxplotForcaDosJogadores\\{year}")
+        os.makedirs(outputPath, exist_ok=True)
+        filePath = (f"{outputPath}\\ViolinGrafic_Forca_Dos_Jogadores{year}.png")
+
+        plt.tight_layout()
+        plt.savefig(filePath,dpi=300,bbox_inches="tight")
+        plt.close(fig)
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        sns.boxplot(
+            data=yearData,
+            x="Month",
+            y="Fcr_PlayerTx",
+            order=range(1, len(monthNumber)+1),
+            showfliers=True,
+            ax=ax
+        )
+
+        ax.axhline(0,linestyle="--",linewidth=1)
+
+        ax.set_title(f"Distribuição da Força da Correlação dos Jogadores - {year}")
+
+        ax.set_xlabel("Mês")
+        ax.set_ylabel("Força da correlação")
+        ax.set_ylim(-1, 1)
+
+        ax.grid(axis="y",alpha=0.25)
+
+        filePath = (f"{outputPath}\\Boxplot_Forca_Dos_Jogadores{year}.png")
+        
+        plt.tight_layout()
+        plt.savefig(filePath,dpi=300,bbox_inches="tight")
+        plt.close(fig)
+
+        ProgressBar("Making MakePlayersForceInMonthViolineGrafic, "+ str(i+1) + " de " + str(len(years)) + " : ",i+1,len(years),startTime=startTime,end=True)
+
+def MakeCorrelationGraficForMonth():
+
+    playersProfile = pd.read_csv(dataBasePath+"PlayersProfile.csv")
+
+    years = playersProfile["Year"].unique()
+    startTime = datetime.datetime.now()
+
+    functions = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"]
+
+    for i, year in enumerate(years):
+        yearData = playersProfile[playersProfile["Year"] == year].copy()
+
+        yearString = str(year)
+
+        outputPath = (f"{dataBasePath}\\MatrizCorrelacao\\{yearString}")
+        os.makedirs(outputPath, exist_ok=True)
+
+        functionData = yearData[yearData["Strategy"].isin(functions)]
+        championData = yearData[~yearData["Strategy"].isin(functions)]
+        
+        graphGroups = [("Funcoes", functionData)]
+
+        for graphName, graphData in graphGroups:
+            if graphData.empty:
+                continue
+            matrix = graphData.pivot_table(
+                index="Strategy",
+                columns="Month",
+                values="Fcr_StrategyTx",
+                aggfunc="mean"
+            )
+            matrix = matrix.reindex(
+                columns=sorted(matrix.columns)
+            )
+            fig, ax = plt.subplots(figsize=(14, 5))
+            sns.heatmap(
+                matrix,
+                cmap="coolwarm",
+                center=0,
+                vmin=-1,
+                vmax=1,
+                mask=matrix.isna(),
+                linewidths=0,
+                ax=ax,
+                cbar_kws={"label": "Força da correlação"}
+            )
+            ax.set_title(
+                f"Força da Correlação das Funções por Mês - {yearString}"
+            )
+            ax.set_xlabel("Mês")
+            ax.set_ylabel("Função")
+            ax.set_xticks([x + 0.5 for x in range(len(matrix.columns))])
+            ax.set_xticklabels(matrix.columns, rotation=0)
+            plt.tight_layout()
+            filePath = f"{outputPath}\\Matriz_Funções_{yearString}.png"
+            plt.savefig(filePath, dpi=300, bbox_inches="tight")
+            plt.close(fig)
+
+        champions = sorted(championData["Strategy"].dropna().unique())
+        groupSize = 10
+        for groupIndex in range(0, len(champions), groupSize):
+            groupChampions = champions[groupIndex:groupIndex + groupSize]
+            groupData = championData[
+                championData["Strategy"].isin(groupChampions)
+            ]
+            matrix = groupData.pivot_table(
+                index="Strategy",
+                columns="Month",
+                values="Fcr_StrategyTx",
+                aggfunc="mean"
+            )
+            matrix = matrix.reindex(
+                index=groupChampions,
+                columns=sorted(matrix.columns)
+            )
+            fig, ax = plt.subplots(figsize=(14, 5))
+            sns.heatmap(
+                matrix,
+                cmap="coolwarm",
+                center=0,
+                vmin=-1,
+                vmax=1,
+                mask=matrix.isna(),
+                linewidths=0.3,
+                ax=ax,
+                cbar_kws={"label": "Força da correlação"}
+            )
+            groupNumber = (groupIndex // groupSize) + 1
+            ax.set_title(
+                f"Força da Correlação dos Campeões por Mês - "
+                f"{yearString} (Grupo {groupNumber})"
+            )
+            ax.set_xlabel("Mês")
+            ax.set_ylabel("Campeão")
+            ax.set_xticks(
+                [x + 0.5 for x in range(len(matrix.columns))]
+            )
+            ax.set_xticklabels(matrix.columns, rotation=0)
+            plt.tight_layout()
+            filePath = (
+                f"{outputPath}\\Matriz_Campeoes_"
+                f"Grupo_{groupNumber:02d}_{yearString}.png"
+            )
+            plt.savefig(
+                filePath,
+                dpi=300,
+                bbox_inches="tight"
+            )
+            plt.close(fig)
+        ProgressBar("Making MakeStrategyForceGrafic, "+ str(i+1)+ " de "+ str(len(years))+ " : ",i+1,len(years),startTime=startTime,end=True)
     return
 
 print("==============================================================")
@@ -393,7 +696,12 @@ baseFiltred["Week"] = ((baseFiltred["gameEndTimestampToDate"].dt.day -1) // 7) +
 base["baseFiltred"] = baseFiltred
 
 MakeAllPlayerProfile() #00:26:32
-#MakePlayerCommitmentGraficTwo() #03:24:05
+MakePlayerCommitmentGraficTwo() #03:24:05
+MakeStrategyForceGrafic() #00:00:49 ~ 00:00:44
+MakePlayerForceGrafic() #00:13:45 ~ 00:18:48
+MakePlayerForceInMonthGrafic()
+MakeCorrelationGraficForMonth() #00:00:07
+MakePlayersForceInMonthViolineGrafic() #00:00:01
 
 print("==============================================================")
 

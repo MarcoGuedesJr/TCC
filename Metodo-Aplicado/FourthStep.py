@@ -369,7 +369,7 @@ functions_all = filtredData[column_tag["function"]].unique()
 
 print("==============================================================")
 
-print("Start Second Step.")
+print("Start Fourth Step.")
 
 #players_base = GetAllPlayersBase(players_all)
 unifiqued_csv = unifiqued_csv = MakeUnifiquedCsv(players_all) #00:02:24

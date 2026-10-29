@@ -23,6 +23,7 @@ filtredBaseAnaliseName = "AnalysisFiltredBase.csv"
 
 column_tag = {
     "player" : "summonerName",
+    "playerIdentifier": "playerIdRemaster",
     "region" : "region",
     "regionCode" : "regionCode",
     "champion" : "championName",
@@ -42,7 +43,6 @@ def MakeTimePassString(startTime,endTime):
     hours = seconds // 3600; minutes = (seconds % 3600) // 60; seconds = seconds % 60
     timePass = f" | {hours:02}:{minutes:02}:{seconds:02}"
     return timePass
-
 #Use this to show your progress in terminal.
 def ProgressBar(message1,value,maxValue,message2 = "%.",end = False, startTime=None):
     progress = (value / maxValue)
@@ -114,9 +114,9 @@ def Analise(base,columnTag,fileName):
         winBase = tagBase[tagBase["win"] == True]
         loseBase = tagBase[tagBase["win"] == False]
 
-        tagCount = tagBase[column_tag["player"]].value_counts()
-        tagWin = winBase[column_tag["player"]].value_counts()
-        tagLose = loseBase[column_tag["player"]].value_counts()
+        tagCount = tagBase[column_tag["playerIdentifier"]].value_counts()
+        tagWin = winBase[column_tag["playerIdentifier"]].value_counts()
+        tagLose = loseBase[column_tag["playerIdentifier"]].value_counts()
 
         value_tag = tag
 
@@ -182,7 +182,7 @@ def BoxPlot(dados,title,label,saveName,path,labelNumbers=0):
         
     
     #plt.show()
-    plt.savefig(path+".png",dpi=300,bbox_inches="tight")
+    plt.savefig(path+saveName+".png",dpi=300,bbox_inches="tight")
     plt.close()
 
 def MakeBoxPlot(base,baseName):
@@ -191,16 +191,16 @@ def MakeBoxPlot(base,baseName):
     dados1_escolha = []; dados2_escolha = []; dados1_win = []; dados2_win = []
 
     dados_players = [
-            base[column_tag["player"]].value_counts(),
-            base[column_tag["player"]].unique()
+            base[column_tag["playerIdentifier"]].value_counts(),
+            base[column_tag["playerIdentifier"]].unique()
         ]
     
     champions = base[column_tag["champion"]].unique()
     for champion in champions:
 
         champion_data = base[base[column_tag["champion"]] == champion]
-        partidas_por_player = champion_data[column_tag["player"]].value_counts()
-        wins_por_player = champion_data.groupby(column_tag["player"])[column_tag["win"]].sum()
+        partidas_por_player = champion_data[column_tag["playerIdentifier"]].value_counts()
+        wins_por_player = champion_data.groupby(column_tag["playerIdentifier"])[column_tag["win"]].sum()
         
         dados1_escolha.append(partidas_por_player.values)
         dados2_escolha.append(champion)
@@ -215,8 +215,8 @@ def MakeBoxPlot(base,baseName):
     for function in functions:
 
         function_data = base[base[column_tag["function"]] == function]
-        partidas_por_player = function_data[column_tag["player"]].value_counts()
-        wins_por_player = function_data.groupby(column_tag["player"])[column_tag["win"]].sum()
+        partidas_por_player = function_data[column_tag["playerIdentifier"]].value_counts()
+        wins_por_player = function_data.groupby(column_tag["playerIdentifier"])[column_tag["win"]].sum()
         dados1_escolha.append(partidas_por_player.values)
         dados2_escolha.append(function)
         dados1_win.append(wins_por_player.values)
@@ -225,27 +225,31 @@ def MakeBoxPlot(base,baseName):
     dados_functions_escolha = [dados1_escolha,dados2_escolha]
     dados_functions_win = [dados1_win,dados2_win]
 
-    #BoxPlot(base,column_tag["player"],"Box Plot "+baseName+": Maximo De Partidas P/ Player","Partidas Jogadas",baseName+"_Players")
+    #BoxPlot(base,column_tag["playerIdentifier"],"Box Plot "+baseName+": Maximo De Partidas P/ Player","Partidas Jogadas",baseName+"_Players")
 
     #dados,title,label,saveName,path,labelNumbers=0
     BoxPlot(dados=dados_champions_escolha,
-            title="Box Plot "+baseName+": Escolhas P/ Campeão",
-            label="Vezes Escolhidas P/ Player",
+            title="Box Plot "+baseName+": Escolhas Por Campeão",
+            label="Vezes Escolhidas Por Player",
+            saveName="BoxPlotEscolhasPCampeao",
             path=baseName,
             labelNumbers=5)
     BoxPlot(dados=dados_champions_win,
-            title="Box Plot "+baseName+": Vitorias P/ Campeão",
-            label="Vitorias P/ Player",
+            title="Box Plot "+baseName+": Vitorias Por Campeão",
+            label="Vitorias Por Player",
+            saveName="BoxPlotVitoriasPCampeao",
             path=baseName,
             labelNumbers=5)
     
     BoxPlot(dados=dados_functions_escolha,
-            title="Box Plot "+baseName+": Escolhas P/ Função",
-            label="Vezes Escolhidas P/ Player",
+            title="Box Plot "+baseName+": Escolhas Por Função",
+            label="Vezes Escolhidas Por Player",
+            saveName="BoxPlotEscolhasPFuncao",
             path=baseName)
     BoxPlot(dados=dados_functions_win,
-            title="Box Plot "+baseName+": Vitorias P/ Função",
-            label="Vitorias P/ Player",
+            title="Box Plot "+baseName+": Vitorias Por Função",
+            label="Vitorias Por Player",
+            saveName="BoxPlotVitoriasPFuncao",
             path=baseName)
 
 def MakeAnalysisDirs():
@@ -283,7 +287,7 @@ def MonthMorePlayed(base:pd.DataFrame,base_tag:str):
         for month in months:
             o+= 1
             monthBase = yearBase[yearBase["month"] == month]
-            players = monthBase[column_tag["player"]].value_counts()
+            players = monthBase[column_tag["playerIdentifier"]].value_counts()
             min_played = players.min()
             max_played = players.max()
             med_played = round(players.mean())
@@ -313,13 +317,13 @@ def MonthMorePlayed(base:pd.DataFrame,base_tag:str):
 def ChampionsAndFunctionsPlayedByPlayers(base:pd.DataFrame,base_tag:str):
     os.makedirs(analysPath+base_tag+"\\ChampionsAndFunctionsPlayedByPlayers\\",exist_ok=True)
     dir = analysPath+base_tag+"\\ChampionsAndFunctionsPlayedByPlayers\\"
-    players = base[column_tag["player"]].unique()
+    players = base[column_tag["playerIdentifier"]].unique()
     CreateCSV(os.path.join(dir+"ChampionsAndFunctionsPlayedByPlayers.csv"),["Tag","champ_versatility","func_versatility"])
     
     i = 0; startTime = datetime.datetime.now()
     for player in players:
         i += 1
-        playerBase: pd.DataFrame = base[base[column_tag["player"]] == player]
+        playerBase: pd.DataFrame = base[base[column_tag["playerIdentifier"]] == player]
     
         tag = player
         champ_versatility = playerBase[column_tag["champion"]].nunique()
@@ -378,7 +382,7 @@ def PlayersForServers(base:pd.DataFrame,base_tag:str):
 
     graficBase = base
 
-    players_in_regions = (graficBase.groupby(column_tag["regionCode"])[column_tag["player"]].nunique().sort_index())
+    players_in_regions = (graficBase.groupby(column_tag["regionCode"])[column_tag["playerIdentifier"]].nunique().sort_index())
 
     plt.figure(figsize=(10, 6))
 
@@ -469,6 +473,7 @@ def RegionForPlayers(base:pd.DataFrame,base_tag:str):
         print(playersMultipleRegions)
     else:
         print("Nenhum jogador aparece em mais de uma região.")
+        return
 
     graficBase = pd.read_csv(analysPath+base_tag+"\\MultiRegionPlayers\\MultiRegionPlayers.csv",encoding="utf-16")
 
@@ -500,7 +505,7 @@ def PuuidAndAccountIdTest(base:pd.DataFrame,base_tag:str):
 
     puuidAnalysis = base.groupby("puuid")
     puuidAnalysis = puuidAnalysis.agg(
-        names=(column_tag["player"], "nunique"),
+        names=(column_tag["playerIdentifier"], "nunique"),
         accountIds=("accountId", "nunique"),
         regions=(column_tag["regionCode"], "nunique"))
     puuidAnalysis = puuidAnalysis.reset_index()
@@ -549,19 +554,19 @@ def PlayerPuuidAdjust(base:pd.DataFrame,base_tag:str):
     os.makedirs(analysPath+base_tag+"\\PlayerPuuidAdjust\\",exist_ok=True)
     otherCsv = base[base["puuid"] != "Player Not Found"].copy()
     pnfCsv = base[base["puuid"] == "Player Not Found"].copy()
-    otherCsv["playerIdRemaster"] = (otherCsv[column_tag["player"]] + otherCsv[column_tag["regionCode"]])
-    pnfCsv["playerIdRemaster"] = (pnfCsv[column_tag["player"]] + pnfCsv[column_tag["regionCode"]])
+    otherCsv["player"] = (otherCsv[column_tag["player"]] + otherCsv[column_tag["regionCode"]])
+    pnfCsv["player"] = (pnfCsv[column_tag["player"]] + pnfCsv[column_tag["regionCode"]])
 
-    otherPlayers = otherCsv["playerIdRemaster"].unique()
-    pnfPlayers = pnfCsv["playerIdRemaster"].unique()
+    otherPlayers = otherCsv["player"].unique()
+    pnfPlayers = pnfCsv["player"].unique()
 
     hasMatch = pnfPlayers[np.isin(pnfPlayers, otherPlayers)].size
 
     print("Pnf Players : "+str(len(pnfPlayers)))
     print("Double Players Searched : "+str(hasMatch))
 
-    duplicatedPlayers = pnfCsv[pnfCsv["playerIdRemaster"].isin(otherCsv["playerIdRemaster"])].copy()
-    notDuplicatedPlayers = pnfCsv[~pnfCsv["playerIdRemaster"].isin(otherCsv["playerIdRemaster"])].copy()
+    duplicatedPlayers = pnfCsv[pnfCsv["player"].isin(otherCsv["player"])].copy()
+    notDuplicatedPlayers = pnfCsv[~pnfCsv["player"].isin(otherCsv["player"])].copy()
 
     duplicatedPlayers.to_csv(analysPath+base_tag+"\\PlayerPuuidAdjust\\DuplicatedPlayers.csv",index=False,encoding="utf-16")
     notDuplicatedPlayers.to_csv(analysPath+base_tag+"\\PlayerPuuidAdjust\\NotDuplicatedPlayers.csv",index=False,encoding="utf-16")
