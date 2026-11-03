@@ -573,33 +573,174 @@ def PlayerPuuidAdjust(base:pd.DataFrame,base_tag:str):
 
     return
 
+def MediaDeParts(base:pd.DataFrame,base_tag:str):
+
+    # Diretório de saída
+    outputPath = analysPath + base_tag + "\\PlayerPuuidAdjust\\"
+    os.makedirs(outputPath, exist_ok=True)
+
+    # Copia a base para não alterar os dados originais
+    df = base.copy()
+
+    # Identifica os jogadores usando nome + região
+    df["player"] = (
+        df[column_tag["player"]].astype(str)
+        + df[column_tag["regionCode"]].astype(str)
+    )
+
+    # Cria a coluna de data
+    if "gameEndTimestampToDate" in df.columns:
+        df["date"] = pd.to_datetime(
+            df["gameEndTimestampToDate"],
+            errors="coerce"
+        ).dt.normalize()
+
+    elif all(col in df.columns for col in ["year", "month", "day"]):
+        df["date"] = pd.to_datetime(
+            df[["year", "month", "day"]],
+            errors="coerce"
+        ).dt.normalize()
+
+    else:
+        raise ValueError(
+            "A base precisa possuir a coluna gameEndTimestampToDate "
+            "ou as colunas year, month e day."
+        )
+
+    # Remove registros sem identificador ou data válida
+    df = df.dropna(subset=["player", "date"])
+
+    if df.empty:
+        raise ValueError("Não existem partidas com datas válidas.")
+
+    # ==================================================
+    # 1. MÉDIA DIÁRIA: somente dias ativos
+    # ==================================================
+
+    partidasDiarias = (
+        df.groupby(["player", "date"])
+        .size()
+    )
+
+    mediaDiaria = partidasDiarias.mean()
+
+
+    # ==================================================
+    # 2. MÉDIA SEMANAL: somente semanas ativas
+    # ==================================================
+
+    # A semana começa na segunda-feira
+    df["week"] = (
+        df["date"]
+        - pd.to_timedelta(df["date"].dt.weekday, unit="D")
+    )
+
+    partidasSemanais = (
+        df.groupby(["player", "week"])
+        .size()
+    )
+
+    mediaSemanal = partidasSemanais.mean()
+
+
+    # ==================================================
+    # 3. MÉDIA MENSAL: somente meses ativos
+    # ==================================================
+
+    df["month"] = df["date"].dt.to_period("M")
+
+    partidasMensais = (
+        df.groupby(["player", "month"])
+        .size()
+    )
+
+    mediaMensal = partidasMensais.mean()
+
+
+    # ==================================================
+    # 4. MÉDIA ANUAL: somente anos ativos
+    # ==================================================
+
+    df["year"] = df["date"].dt.year
+
+    partidasAnuais = (
+        df.groupby(["player", "year"])
+        .size()
+    )
+
+    mediaAnual = partidasAnuais.mean()
+
+
+    # ==================================================
+    # 5. GERAÇÃO DO CSV
+    # ==================================================
+
+    resultados = pd.DataFrame([{
+        "Media_Partidas_Diarias": mediaDiaria,
+        "Media_Partidas_Semanais": mediaSemanal,
+        "Media_Partidas_Mensais": mediaMensal,
+        "Media_Partidas_Anuais": mediaAnual
+    }])
+
+    outputFile = outputPath + "MediaPartidasPeriodosAtivos.csv"
+
+    resultados.to_csv(
+        outputFile,
+        index=False,
+        encoding="utf-16",
+        float_format="%.6f"
+    )
+
+
+    # ==================================================
+    # 6. EXIBE OS RESULTADOS
+    # ==================================================
+
+    print("Total de partidas:", len(df))
+    print("Total de jogadores:", df["player"].nunique())
+
+    print("\nQuantidade de observações utilizadas:")
+    print("Jogador-dias ativos:", len(partidasDiarias))
+    print("Jogador-semanas ativas:", len(partidasSemanais))
+    print("Jogador-meses ativos:", len(partidasMensais))
+    print("Jogador-anos ativos:", len(partidasAnuais))
+
+    print("\nResultados:")
+    print(resultados)
+
+    print("\nArquivo salvo em:", outputFile)
+    return
+
 print("==============================================================")
 print("Start Analysis First Step.")
 base_csv = AdjustTimeStamp(base_csv); baseFiltred_csv = AdjustTimeStamp(baseFiltred_csv)
-AnaliseDataBase()
-AnaliseFiltredDataBase()
-MakeBoxPlot(baseFiltred_csv,"Filtred")
+#AnaliseDataBase()
+#AnaliseFiltredDataBase()
+#MakeBoxPlot(baseFiltred_csv,"Filtred")
 
-MonthMorePlayed(base_csv,"base")
-MonthMorePlayed(baseFiltred_csv,"filtred")
+#MonthMorePlayed(base_csv,"base")
+#MonthMorePlayed(baseFiltred_csv,"filtred")
 
 #ChampionsAndFunctionsPlayedByPlayers(base_csv,"base") #Bem demorado, umas 7h/8h.
-ChampionsAndFunctionsPlayedByPlayers(baseFiltred_csv,"filtred")
+#ChampionsAndFunctionsPlayedByPlayers(baseFiltred_csv,"filtred")
 
-PlayersForServers(base_csv,"base")
-PlayersForServers(baseFiltred_csv,"filtred")
+#PlayersForServers(base_csv,"base")
+#PlayersForServers(baseFiltred_csv,"filtred")
 
-FunctionsForChampions(base_csv,"base")
-FunctionsForChampions(baseFiltred_csv,"filtred")
+#FunctionsForChampions(base_csv,"base")
+#FunctionsForChampions(baseFiltred_csv,"filtred")
 
-RegionForPlayers(base_csv,"base")
-RegionForPlayers(baseFiltred_csv,"filtred")
+#RegionForPlayers(base_csv,"base")
+#RegionForPlayers(baseFiltred_csv,"filtred")
 
-PuuidAndAccountIdTest(base_csv,"base")
-PuuidAndAccountIdTest(baseFiltred_csv,"filtred")
+#PuuidAndAccountIdTest(base_csv,"base")
+#PuuidAndAccountIdTest(baseFiltred_csv,"filtred")
 
-PlayerPuuidAdjust(base_csv,"base")
-PlayerPuuidAdjust(baseFiltred_csv,"filtred")
+#PlayerPuuidAdjust(base_csv,"base")
+#PlayerPuuidAdjust(baseFiltred_csv,"filtred")
+
+MediaDeParts(base_csv,"base")
+MediaDeParts(baseFiltred_csv,"filtred")
 
 print("==============================================================")
 

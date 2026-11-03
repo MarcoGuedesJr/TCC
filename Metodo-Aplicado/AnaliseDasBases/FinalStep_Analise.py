@@ -19,6 +19,12 @@ taxasAnaliseName = "AnalysisTaxas.csv"
 ThirdStepPath = dataBasePath+"3º Step\\"
 FourthStepPath = dataBasePath+"4º Step\\"
 
+month_names = [
+    "Janeiro", "Fevereiro", "Março", "Abril",
+    "Maio", "Junho", "Julho", "Agosto",
+    "Setembro", "Outubro", "Novembro", "Dezembro"
+]
+
 base = {
     "baseFiltred":  pd.read_csv(dataBasePath+filtredName),
     "commitment" : pd.read_csv(ThirdStepPath+"Players_Vector_WinValue.csv"),
@@ -79,13 +85,14 @@ def UpdateCSV(csvPath,write,updateCount,printCount = False) -> int:
         writer.writerow(write)
     return updateCount
 
-def MakePlayerProfile(player,strategy,year,month,partidas_totais,
+def MakePlayerProfile(player,strategy,strategyType,year,month,partidas_totais,
                       partidas,vitorias,fcr_player,fcr_strategy,fcr_player_strategy,
                       taxa_escolha,taxa_vitoria,fcr_playertx,fcr_strategytx,fcr_player_strategytx,
                       commit):
     profile = pd.DataFrame({
         "Player" : [player],
         "Strategy" : [strategy],
+        "strategType" : [strategyType],
         "Year" : [year],
         "Month" : [month],
         "Partidas_Totais" : [partidas_totais],
@@ -105,11 +112,22 @@ def MakePlayerProfile(player,strategy,year,month,partidas_totais,
 
 def MakeAllPlayerProfile():
     #Criar 1 perfil mensal do jogador com 
-    players = base["baseFiltred"][column_tag["playerIdentifier"]].unique()
-
     filtredBase = base["baseFiltred"]; commitmentBase = base["commitment"]
     playerFcrBase = base["playerForce"]; strategyFcrBase = base["strategyForce"]; playerStrategyFcrBase = base["playerStrategyForce"]
 
+    playerFcrBaseFunction = playerFcrBase[playerFcrBase["strategyType"] == "functions"]
+    playerFcrBaseChampion = playerFcrBase[playerFcrBase["strategyType"] == "champions"]
+
+    allStrategyArray = []
+    allStrategyArray.append(MakeAllPlayerProfileForStrategyType(filtredBase,commitmentBase,playerFcrBaseFunction,strategyFcrBase,playerStrategyFcrBase))
+    allStrategyArray.append(MakeAllPlayerProfileForStrategyType(filtredBase,commitmentBase,playerFcrBaseChampion,strategyFcrBase,playerStrategyFcrBase))
+    
+    allStrategyArray = pd.concat(allStrategyArray,ignore_index=True)
+    allStrategyArray.to_csv(dataBasePath+"PlayersProfile.csv",index=False)
+    return
+
+def MakeAllPlayerProfileForStrategyType(filtredBase,commitmentBase,playerFcrBase,strategyFcrBase,playerStrategyFcrBase):
+    players = base["baseFiltred"][column_tag["playerIdentifier"]].unique()
     allPlayersArray = []; i = 0; startTime = datetime.datetime.now()
     for player in players: 
         playerPath = playersPath+player+"\\"
@@ -152,6 +170,8 @@ def MakeAllPlayerProfile():
                     baseStrategyFcr = strategyFcrBaseMonth
                     basePlayerStrategyFcr = playerStrategyFcrBaseMonth
 
+                    strategyType = playerFcrBaseMonth["strategyType"].iloc[0]
+
                     part_strategy = len(baseStrategy["win"])
                     part_player = len(basePlayer["win"])
 
@@ -160,29 +180,28 @@ def MakeAllPlayerProfile():
                     vitorias = baseStrategy["win"].sum()
 
                     fcr_column = { "taxa/taxa" : "PickRate/WinRate", "part/win" : "Parts/Win"}
-                    fcr_player = basePlayerFcr[fcr_column["taxa/taxa"]].iloc[0]
-                    fcr_strategy = baseStrategyFcr[fcr_column["taxa/taxa"]].iloc[0]
-                    fcr_player_strategy = basePlayerStrategyFcr[fcr_column["taxa/taxa"]].iloc[0]
+                    fcr_player = basePlayerFcr[fcr_column["part/win"]].iloc[0]
+                    fcr_strategy = baseStrategyFcr[fcr_column["part/win"]].iloc[0]
+                    fcr_player_strategy = basePlayerStrategyFcr[fcr_column["part/win"]].iloc[0]
 
                     taxa_escolha = round(part_strategy/part_player,2)
                     taxa_vitoria = round(vitorias/part_strategy,2)
 
-                    fcr_playertx = basePlayerFcr[fcr_column["part/win"]].iloc[0]
-                    fcr_strategytx = baseStrategyFcr[fcr_column["part/win"]].iloc[0]
-                    fcr_player_strategytx = basePlayerStrategyFcr[fcr_column["part/win"]].iloc[0]
+                    fcr_playertx = basePlayerFcr[fcr_column["taxa/taxa"]].iloc[0]
+                    fcr_strategytx = baseStrategyFcr[fcr_column["taxa/taxa"]].iloc[0]
+                    fcr_player_strategytx = basePlayerStrategyFcr[fcr_column["taxa/taxa"]].iloc[0]
 
                     commit = baseCommitment["ensemble"].iloc[0]
 
-                    #                                 player,strategy,year,month,partidas_totais,partidas,vitorias,fcr_player,fcr_strategy,fcr_player_strategy,taxa_escolha,taxa_vitoria,fcr_playertx,fcr_strategytx,fcr_player_strategytx,commit
-                    playerProfile = MakePlayerProfile(player,strategy,year,month,partidas_totais,partidas,vitorias,fcr_player,fcr_strategy,fcr_player_strategy,taxa_escolha,taxa_vitoria,fcr_playertx,fcr_strategytx,fcr_player_strategytx,commit)
+                    #                                 player,strategy,strategyType,year,month,partidas_totais,partidas,vitorias,fcr_player,fcr_strategy,fcr_player_strategy,taxa_escolha,taxa_vitoria,fcr_playertx,fcr_strategytx,fcr_player_strategytx,commit
+                    playerProfile = MakePlayerProfile(player,strategy,strategyType,year,month,partidas_totais,partidas,vitorias,fcr_player,fcr_strategy,fcr_player_strategy,taxa_escolha,taxa_vitoria,fcr_playertx,fcr_strategytx,fcr_player_strategytx,commit)
                     playerArray.append(playerProfile)
         playerArray= pd.concat(playerArray,ignore_index=True)
         allPlayersArray.append(playerArray)
         playerArray.to_csv(playerPath+"PlayerProfile.csv",index=False)
         i+= 1; ProgressBar("Making AllPlayerProfile and Make csv ",i,len(players),startTime=startTime,end=True)
     allPlayersArray = pd.concat(allPlayersArray,ignore_index=True)
-    allPlayersArray.to_csv(dataBasePath+"PlayersProfile.csv",index=False)
-    return
+    return allPlayersArray
 
 def MakePlayerCommitmentGrafic():
     playersProfile = pd.read_csv(dataBasePath+"PlayersProfile.csv")
@@ -331,6 +350,19 @@ def MakePlayerForceGrafic():
     playersProfile = playersProfile[playersProfile["ForceLabel"].notna()]
     players = playersProfile["Player"].unique()
 
+    functionsProfile = playersProfile[playersProfile["strategType"] == "functions"]
+    championsProfile = playersProfile[playersProfile["strategType"] == "champions"]
+
+    groupedPlayersFunction = functionsProfile.groupby("Player", sort=False)
+    groupedPlayersChampion = championsProfile.groupby("Player", sort=False)
+
+    MakePlayerForceForStrategyType(players,groupedPlayersFunction,"functions",correlationColumn)
+    MakePlayerForceForStrategyType(players,groupedPlayersChampion,"champions",correlationColumn)
+
+    return
+
+def MakePlayerForceForStrategyType(players,groupedPlayers,strategyType,correlationColumn):
+
     label_order = ["Neg Muito Forte", "Neg Forte", "Neg Moderada", "Neg Fraca", "Neg Desprezível",
                    "Pos Desprezível", "Pos Fraca", "Pos Moderada", "Pos Forte", "Pos Muito Forte"]
     label_to_y = {label: i for i, label in enumerate(label_order)}
@@ -340,21 +372,19 @@ def MakePlayerForceGrafic():
 
     mensalPlayersForceCsv = []
 
-    groupedPlayers = playersProfile.groupby("Player", sort=False)
-
     for player, playerProfile in groupedPlayers:
         i += 1
         playerPath = playersPath + player + "\\"
         forcePath = playerPath + "ForceForYears\\"
 
-        
+
         groupedYears = playerProfile.groupby("Year", sort=False)
         mensalPlayersForceCsv.append(playerProfile[["Player","Year","Month",correlationColumn,"ForceLabel"]].drop_duplicates())
 
         for year, playerProfileYear in groupedYears:
 
             if playerProfileYear["Month"].nunique() < 2:
-                ProgressBar("Making MakePlayerForceGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
+                ProgressBar("Making MakePlayerForceGrafic with strategyType :"+ strategyType + ", "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
                 continue
 
             os.makedirs(forcePath, exist_ok=True)
@@ -363,8 +393,6 @@ def MakePlayerForceGrafic():
             os.makedirs(yearPath, exist_ok=True)
 
             playerProfileYear = playerProfileYear.sort_values("Month")
-
-            #print(playersProfile)
 
             x = playerProfileYear["Month"]
             y = playerProfileYear["ForceLabel"].map(label_to_y)
@@ -380,19 +408,22 @@ def MakePlayerForceGrafic():
             ax.set_title("Tendencia Estrategica do Jogador por mês.")
 
             ax.set_yticks(label_positions, label_order)
-            ax.set_xticks(range(1, 13))
+
+            months = sorted(playerProfileYear["Month"].unique())
+            ax.set_xticks(months)
+            ax.set_xticklabels([month_names[m - 1] for m in months],rotation=45,ha="right")
+
             ax.grid(axis="x", alpha=0.3)
 
-            save_path = (f"{yearPath}PlayerForce_in_{year}.png")
+            save_path = (f"{yearPath}PlayerForce_{strategyType}_in_{year}.png")
 
             fig.savefig(save_path,dpi=300,bbox_inches="tight")
             plt.close(fig)
 
-            ProgressBar("Making MakePlayerForceGrafic, "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
+            ProgressBar("Making MakePlayerForceGrafic with strategyType :"+ strategyType + ", "+ str(i)+ " de "+ str(len(players))+ " : ",i,len(players),startTime=startTime,end=True)
 
     mensalPlayersForceCsv = pd.concat(mensalPlayersForceCsv,ignore_index=True)
-    mensalPlayersForceCsv.to_csv(dataBasePath+"PlayersForceMonth.csv",index=False)
-    return
+    mensalPlayersForceCsv.to_csv(dataBasePath+"PlayersForceMonth_"+strategyType+".csv",index=False)
 
 def MakeStrategyForceGrafic():
     correlationColumn = "Fcr_StrategyTx"
@@ -444,7 +475,11 @@ def MakeStrategyForceGrafic():
             ax.set_title(f"Tendencia Estrategica dos Jogador de {strategy} por mês.")
 
             ax.set_yticks(label_positions, label_order)
-            ax.set_xticks(range(1, 13))
+
+            months = sorted(strategyProfileYear["Month"].unique())
+            ax.set_xticks(months)
+            ax.set_xticklabels([month_names[m - 1] for m in months],rotation=45,ha="right")
+            
             ax.grid(axis="x", alpha=0.3)
 
             save_path = (f"{yearPath}{strategy}Force_in_{year}.png")
@@ -456,8 +491,15 @@ def MakeStrategyForceGrafic():
     return
 
 def MakePlayerForceInMonthGrafic():
-    playersForce = pd.read_csv(dataBasePath+"PlayersForceMonth.csv")
 
+    functionForce = pd.read_csv(dataBasePath+"PlayersForceMonth_functions.csv")
+    championForce = pd.read_csv(dataBasePath+"PlayersForceMonth_champions.csv")
+
+    MakePlayerForceInMonthGraficForStrategyType(functionForce,"functions")
+    MakePlayerForceInMonthGraficForStrategyType(championForce,"champions")
+    return
+
+def MakePlayerForceInMonthGraficForStrategyType(playersForce,strategyType):
     forceLabels = [
         "Neg Muito Forte",
         "Neg Forte",
@@ -472,7 +514,7 @@ def MakePlayerForceInMonthGrafic():
     ]
 
     years = sorted(playersForce["Year"].dropna().unique())
-    os.makedirs(dataBasePath+"CorrelationForceForMonth")
+    os.makedirs(dataBasePath+"CorrelationForceForMonth",exist_ok=True)
 
     for year in years:
         yearData = playersForce[playersForce["Year"] == year]
@@ -497,7 +539,7 @@ def MakePlayerForceInMonthGrafic():
 
             plt.tight_layout()
 
-            outputPath = dataBasePath+f"CorrelationForceForMonth\\ForceMonth_{year}_{month}.png"
+            outputPath = dataBasePath+f"CorrelationForceForMonth\\ForceMonth_{year}_{month}_{strategyType}.png"
             plt.savefig(outputPath, dpi=300, bbox_inches="tight")
             plt.close()
     return
@@ -686,6 +728,53 @@ def MakeCorrelationGraficForMonth():
         ProgressBar("Making MakeStrategyForceGrafic, "+ str(i+1)+ " de "+ str(len(years))+ " : ",i+1,len(years),startTime=startTime,end=True)
     return
 
+def MakeBoxplotEngajamentForMonth():
+    playersProfile = pd.read_csv(dataBasePath+"PlayersProfile.csv")
+
+    years = sorted(playersProfile["Year"].dropna().unique())
+    startTime = datetime.datetime.now()
+
+    os.makedirs((f"{dataBasePath}BoxplotComprometimentoPTaxa"), exist_ok=True)
+
+    for i, year in enumerate(years):
+        yearData = playersProfile[playersProfile["Year"] == year].copy()
+        outputPath =  (f"{dataBasePath}BoxplotComprometimentoPTaxa\\{year}")
+        os.makedirs(outputPath, exist_ok=True)
+
+        months = sorted(yearData["Month"].dropna().unique())
+
+        for o, month in enumerate(months):
+            monthData = yearData[yearData["Month"] == month].copy()
+            monthData = monthData.dropna(subset=["Taxa_Vitoria","Commit"])
+            label_order = ["Low", "Average", "High"]
+
+            fig, ax = plt.subplots(figsize=(12, 6))
+
+            sns.boxplot(
+                data=monthData,
+                x="Commit",
+                y="Taxa_Vitoria",
+                order=label_order,
+                showfliers=True,
+                ax=ax
+            )
+
+            ax.set_title(f"Distribuição da taxa de vitoria por nivel de engajamento - {month}")
+
+            ax.set_xlabel("Comprometimento")
+            ax.set_ylabel("Taxa De Vitoria")
+            ax.set_ylim(0, 1)
+
+            ax.grid(axis="y",alpha=0.25)
+
+            filePath = (f"{outputPath}\\Boxplot_CommitmentForTaxa{month}.png")
+
+            plt.tight_layout()
+            plt.savefig(filePath,dpi=300,bbox_inches="tight")
+            plt.close(fig)
+        ProgressBar("Making MakeBoxplotEngajamentForMonth, "+ str(i+1) + " de " + str(len(years)) + " : ",i+1,len(years),startTime=startTime,end=True)
+    return
+
 print("==============================================================")
 print("Start Analysis Final Step")
 baseFiltred = base["baseFiltred"]
@@ -695,13 +784,14 @@ baseFiltred["Month"] = baseFiltred["gameEndTimestampToDate"].dt.month
 baseFiltred["Week"] = ((baseFiltred["gameEndTimestampToDate"].dt.day -1) // 7) + 1
 base["baseFiltred"] = baseFiltred
 
-MakeAllPlayerProfile() #00:26:32
-MakePlayerCommitmentGraficTwo() #03:24:05
-MakeStrategyForceGrafic() #00:00:49 ~ 00:00:44
-MakePlayerForceGrafic() #00:13:45 ~ 00:18:48
-MakePlayerForceInMonthGrafic()
-MakeCorrelationGraficForMonth() #00:00:07
-MakePlayersForceInMonthViolineGrafic() #00:00:01
+#MakeAllPlayerProfile() #00:26:32 ~ 00:32:02
+#MakePlayerCommitmentGraficTwo() #03:24:05
+#MakeStrategyForceGrafic() #00:00:49 ~ 00:00:44
+#MakePlayerForceGrafic() #00:13:45 ~ 00:18:48
+#MakePlayerForceInMonthGrafic()
+#MakeCorrelationGraficForMonth() #00:00:07
+#MakePlayersForceInMonthViolineGrafic() #00:00:01
+MakeBoxplotEngajamentForMonth()
 
 print("==============================================================")
 

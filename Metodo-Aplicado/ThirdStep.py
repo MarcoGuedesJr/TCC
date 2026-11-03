@@ -32,6 +32,7 @@ filtredData = pd.read_csv(dataBasePath+dataBaseFiltred)
 filtredData["gameEndTimestampToDate"] = pd.to_datetime(filtredData["gameEndTimestampToDate"])
 
 updateCount = 0
+taxaForDay = False
 
 column_tag = {
     "player" : "summonerName",
@@ -111,7 +112,10 @@ def CreateVectors(base,player_tag,dir):
             for month in months:
                 monthData = yearData[yearData["Month"] == month]
 
-                partidas_totais = monthData["WeekParts"].sum()
+                partsColum = "WeekParts"
+                if taxaForDay:
+                    partsColum = "DayParts"
+                partidas_totais = monthData[partsColum].sum()
 
                 #data,colum,player_tag,tag,year,month,partidas_totais,dir
                 SaveVector(monthData,"pick_rate",player_tag,tag,year,month,partidas_totais,dir,"PlayerVector_Escolha") #Pick_Rate

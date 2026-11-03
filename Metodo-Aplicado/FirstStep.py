@@ -48,7 +48,7 @@ def FilterData(playersIdentifierColumn:str,earlySurrenderIdentifier:str) -> bool
 
     filtred_csv = pd.read_csv(dataBasePath+filtredName,encoding = "utf-16")
 
-    base_csv["playerIdRemaster"] = (base_csv[column_tag["player"]] + base_csv[column_tag["regionCode"]])
+    base_csv[playersIdentifierColumn] = (base_csv[column_tag["player"]] + base_csv[column_tag["regionCode"]])
     base_csv.to_csv(dataBasePath+"Dataset_LeagueOfLegends_2023.csv",index=False)
 
     filtred_csv = base_csv[base_csv[earlySurrenderIdentifier] != True]

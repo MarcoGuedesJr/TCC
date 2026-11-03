@@ -171,8 +171,8 @@ def ShapiroWilk_EachPlayersAllStrategy(base,players):
                 base_functions = monthData[monthData["Champion/Function"].isin(functions)].copy()
                 base_champions = monthData[~monthData["Champion/Function"].isin(functions)].copy()
 
-                playerResultArray.append(MakeSafeShapiro(player,regionCode,year,month,base_functions))
-                playerResultArray.append(MakeSafeShapiro(player,regionCode,year,month,base_champions))
+                playerResultArray.append(MakeSafeShapiro(player,regionCode,"functions",year,month,base_functions))
+                playerResultArray.append(MakeSafeShapiro(player,regionCode,"champions",year,month,base_champions))
 
         PlayerResult = pd.concat(playerResultArray,ignore_index=True); allResultsArray.append(PlayerResult)
         i+= 1; ProgressBar("Making ShapiroWilk_EachPlayersAllStrategy and Make csv ",i,len(players_all),startTime=startTime,end=True)
@@ -181,14 +181,15 @@ def ShapiroWilk_EachPlayersAllStrategy(base,players):
     result.to_csv(stepBasePath+"ShapiroWilk_EachPlayersAllStrategy.csv",encoding="utf-16",index=False)    
     return
 
-def MakeSafeShapiro(player,regionCode,year,month,base):
+def MakeSafeShapiro(player,regionCode,strategyType,year,month,base):
     tagNumber = len(base["Champion/Function"].unique())
     
     part_stat, part_p = shapiro(base["WeekParts"]); pick_rate_stat, pick_rate_p = shapiro(base["pick_rate"])
     win_stat, win_p = shapiro(base["Wins"]); win_rate_stat, win_rate_p = shapiro(base["win_rate"])
 
     frame = pd.DataFrame({
-        "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function Number" : [tagNumber], "Year": [year], "Month": [month],
+        "Player": [player], column_tag["regionCode"] : regionCode, "Champion/Function Number" : [tagNumber],
+        "StrategyType" : [strategyType], "Year": [year], "Month": [month],
         "ShapiroStat_Parts": [round(part_stat,4)],
         "ShapiroP_Parts" : [round(part_p,4)],
         "ShapiroStat_Pick_Rate": [round(pick_rate_stat,4)],
@@ -294,8 +295,8 @@ def MakeSpearmanEachPlayersAllStrategy(base:pd.DataFrame,players):
                 base_functions = monthData[monthData["Champion/Function"].isin(functions)].copy()
                 base_champions = monthData[~monthData["Champion/Function"].isin(functions)].copy()
 
-                allMonthResults.append(MakeSafeCorrelation(player,regionCode,year,month,base_functions))
-                allMonthResults.append(MakeSafeCorrelation(player,regionCode,year,month,base_champions))
+                allMonthResults.append(MakeSafeCorrelation(player,regionCode,"functions",year,month,base_functions))
+                allMonthResults.append(MakeSafeCorrelation(player,regionCode,"champions",year,month,base_champions))
                 
         allMonthResults = pd.concat(allMonthResults,ignore_index=True)
         allPlayersResults.append(allMonthResults)
@@ -347,7 +348,7 @@ def SafeCorrelation(data,column1,column2,method="spearman"):
     
     return data[column1].corr(data[column2],method=method)
 
-def MakeSafeCorrelation(player,regionCode,year,month,base):
+def MakeSafeCorrelation(player,regionCode,strategyType,year,month,base):
     tagNumber = len(base["Champion/Function"].unique())
     #SafeCorrelation(data,column1,column2,method="spearman"):
     pickRateForWinRate = round(SafeCorrelation(base,"pick_rate","win_rate"),4)
@@ -355,7 +356,8 @@ def MakeSafeCorrelation(player,regionCode,year,month,base):
     partsForWinRate = round(SafeCorrelation(base,"WeekParts","win_rate"),4)
     partsForWin = round(SafeCorrelation(base,"WeekParts","Wins"),4)
     frame = pd.DataFrame({
-        "Player": [player], "regionCode": regionCode, "Champion/Function Numb" : [tagNumber], "Year": [year], "Month": [month],
+        "Player": [player], "regionCode": regionCode, "Champion/Function Numb" : [tagNumber],
+        "strategyType" : [strategyType], "Year": [year], "Month": [month],
         "PickRate/WinRate": [pickRateForWinRate],
         "PickRate/Win" : [pickRateForWin],
         "Parts/WinRate": [partsForWinRate],
@@ -374,23 +376,23 @@ print("Start Fourth Step.")
 #players_base = GetAllPlayersBase(players_all)
 unifiqued_csv = unifiqued_csv = MakeUnifiquedCsv(players_all) #00:02:24
 os.makedirs(dataBasePath+"4º Step", exist_ok=True)
-step_shapiro1 = True
+step_shapiro1 = False
 if step_shapiro1:
     shap1 = ShapiroWilk_EachPlayerStrategy(unifiqued_csv,players_all) #00:19:38
 step_shapiro2 = True
 if step_shapiro2:
     shap2 = ShapiroWilk_EachPlayersAllStrategy(unifiqued_csv,players_all) #00:08:06 ~ 00:08:26
-step_shapiro3 = True
+step_shapiro3 = False
 if step_shapiro3:
     shap3 = ShapiroWilk_AllPlayersStrategy(unifiqued_csv) #00:00:08
 
-step_MakeSpearman1 = True
+step_MakeSpearman1 = False
 if step_MakeSpearman1:
     MakeSpearmanEachPlayerStrategy(unifiqued_csv,players_all) #00:16:31 ~ 00:20:05
 step_MakeSpearman2 = True
 if step_MakeSpearman2:
     MakeSpearmanEachPlayersAllStrategy(unifiqued_csv,players_all) #00:08:20 ~ 00:08:26
-step_MakeSpearman3 = True
+step_MakeSpearman3 = False
 if step_MakeSpearman3:
     MakeSpearmanAllPlayersStrategy(unifiqued_csv) #00:00:11
 
